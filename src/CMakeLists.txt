@@ -25,6 +25,7 @@ execute_process(
 # sources
 set(HH_DPLANE_SRC
     hh_dp_plugin.c
+    hh_dp_process.c
 )
 
 add_library(hh_dplane SHARED ${HH_DPLANE_SRC})
