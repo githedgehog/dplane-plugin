@@ -5,6 +5,8 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/debug.h"
 
+#include "hh_dp_config.h"
+
 #define PLUGIN_NAME "Hedgehog-GW-plugin"
 
 static const char *plugin_name = PLUGIN_NAME;
@@ -101,13 +103,17 @@ static int module_init(void)
     zlog_info("Initializing %s dataplane provider. FRR dataplane version is %u",
             plugin_name, zebra_dplane_get_version());
 
+    zlog_info("Dataplane plugin version %s (%s)", VER_STRING, BUILD_TYPE);
+    zlog_info("Commit %s branch %s tag %s", GIT_COMMIT, GIT_BRANCH, GIT_TAG);
+    zlog_info("Built on %s (%s)", BUILD_DATE, BUILD_TYPE);
+
     hook_register(frr_late_init, init_hh_dplane_plugin);
     return 0;
 }
 
 FRR_MODULE_SETUP(
     .name = PLUGIN_NAME,
-    .version = "0.0.1",
+    .version = VER_STRING,
     .description = "Hedgehog GW dataplane plugin",
     .init = module_init,
 );
