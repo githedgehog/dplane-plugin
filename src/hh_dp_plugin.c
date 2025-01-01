@@ -6,6 +6,7 @@
 #include "zebra/debug.h"
 
 #include "hh_dp_config.h"
+#include "hh_dp_process.h"
 
 #define PLUGIN_NAME "Hedgehog-GW-plugin"
 
@@ -43,6 +44,7 @@ static int zd_hh_process(struct zebra_dplane_provider *prov)
     int counter;
     int limit;
     struct zebra_dplane_ctx *ctx;
+    enum zebra_dplane_result res;
 
     if (IS_ZEBRA_DEBUG_DPLANE)
         zlog_debug("%s: Process...", dplane_provider_get_name(prov));
@@ -53,7 +55,8 @@ static int zd_hh_process(struct zebra_dplane_provider *prov)
         if (!ctx)
             break;
 
-        dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+        res = zd_hh_process_update(ctx);
+        dplane_ctx_set_status(ctx, res);
         dplane_provider_enqueue_out_ctx(prov_p, ctx);
     }
     return 0;
