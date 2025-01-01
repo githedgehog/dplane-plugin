@@ -7,6 +7,7 @@
 
 #include "hh_dp_config.h"
 #include "hh_dp_process.h"
+#include "hh_dp_comm.h"
 
 #define PLUGIN_NAME "Hedgehog-GW-plugin"
 
@@ -21,7 +22,13 @@ static int zd_hh_start(struct zebra_dplane_provider *prov)
 {
     zlog_info("%s: Starting...", dplane_provider_get_name(prov));
 
-    return 0;
+    int r = init_dplane_rpc();
+    if (r != 0) {
+        zlog_err("Plugin RPC initialization failed!!");
+        abort();
+    }
+
+    return 0; /* unused */
 }
 
 /*
@@ -31,6 +38,7 @@ static int zd_hh_fini(struct zebra_dplane_provider *prov, bool early)
 {
     zlog_info("%s: Finalizing...", dplane_provider_get_name(prov));
 
+    fini_dplane_rpc();
     return 0;
 }
 
