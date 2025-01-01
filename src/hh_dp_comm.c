@@ -16,6 +16,7 @@
 
 #include "hh_dp_internal.h"
 #include "hh_dp_comm.h"
+#include "hh_dp_msg.h"
 
 #define DPLANE_CONNECT_SEC 5 /* default connection-retry timer value */
 #define NO_SOCK -1 /* sock descriptor initializer */
@@ -245,6 +246,9 @@ static void dp_connect(struct event *e)
         event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
     } else {
         ev_connect_timer = NULL;
+
+        /* send Connect RPC request with versioning info */
+        send_rpc_request_connect();
 
         /* sched recv */
         event_add_read(ev_loop, dp_rpc_recv, NULL, dp_sock, &ev_recv);
