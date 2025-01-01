@@ -227,6 +227,9 @@ static void dp_rpc_recv(struct event *thread)
             zlog_err("Error decoding msg from dataplane: %s", err2str(r));
             return;
         }
+
+        /* handle message */
+        handle_rpc_msg(&msg);
     }
 }
 
