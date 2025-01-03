@@ -4,6 +4,8 @@
 
 #include "config.h" /* FRRs config.h */
 #include <dplane-rpc/dplane-rpc.h> /* HH's rpc dataplane library */
+
+#include "zebra/zebra_dplane.h"
 #include "lib/libfrr.h"
 #include "lib/assert/assert.h"
 #include "zebra/debug.h"
@@ -25,6 +27,30 @@ int send_rpc_request_connect(void)
     verinfo_as_object(&msg.request.object, &info);
     return send_rpc_msg(&msg);
 }
+
+/* Send a request to Add / Del an interface address */
+int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx)
+{
+    BUG(!ctx, -1);
+    BUG(op != Add && op != Del, -1);
+    struct ifaddress ifa = {0};
+
+    const struct prefix *ifaddr = dplane_ctx_get_intf_addr(ctx);
+    ifa.ifindex = dplane_ctx_get_ifindex(ctx);
+    ifa.vrfid = dplane_ctx_get_ifp_vrf_id(ctx);
+    ifa.len = ifaddr->prefixlen;
+    if (ifaddr->family == AF_INET) {
+        ifa.address.ipver = IPV4;
+        ifa.address.addr.ipv4 = ifaddr->u.prefix4.s_addr;
+    } else {
+        ifa.address.ipver = IPV6;
+        memcpy(ifa.address.addr.ipv6, ifaddr->u.prefix6.__in6_u.__u6_addr8, 16);
+    }
+    struct RpcMsg msg = {.type = Request, .request.op = op, .request.seqn = seqnum++};
+    ifaddress_as_object(&msg.request.object, &ifa);
+    return send_rpc_msg(&msg);
+}
+
 
 /* handle messages from dataplane */
 static void handle_rpc_response(struct RpcResponse *resp)

@@ -6,6 +6,7 @@
 #include "zebra/debug.h"
 
 #include "hh_dp_process.h"
+#include "hh_dp_msg.h"
 
 typedef enum hh_dp_res_e {
     HH_QUEUED = ZEBRA_DPLANE_REQUEST_QUEUED,
@@ -83,15 +84,20 @@ static hh_dp_res_t hh_process_ifaddr(struct zebra_dplane_ctx *ctx)
     if (ifaddr->family != AF_INET)
         return HH_IGNORED;
 
+    int r;
     switch (dplane_ctx_get_op(ctx))
     {
         case DPLANE_OP_ADDR_INSTALL:
+            r = send_rpc_request_ifaddress(Add, ctx);
+            break;
         case DPLANE_OP_ADDR_UNINSTALL:
-            return HH_OK;
+            r = send_rpc_request_ifaddress(Del, ctx);
+            break;
         default:
             assert(0);
             return HH_BUG;
     }
+    return !r ? HH_OK: HH_FAIL;
 }
 static hh_dp_res_t hh_process_neigh(struct zebra_dplane_ctx *ctx)
 {
