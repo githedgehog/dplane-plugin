@@ -17,6 +17,7 @@
 #include "hh_dp_internal.h"
 #include "hh_dp_comm.h"
 #include "hh_dp_msg.h"
+#include "hh_dp_msg_cache.h"
 
 #define DPLANE_CONNECT_SEC 5 /* default connection-retry timer value */
 #define NO_SOCK -1 /* sock descriptor initializer */
@@ -269,6 +270,9 @@ void fini_dplane_rpc(void)
         buff_free(tx_buff);
     if (rx_buff)
         buff_free(rx_buff);
+
+    /* finalize message cache */
+    fini_dp_msg_cache();
 }
 
 
@@ -306,6 +310,9 @@ int init_dplane_rpc(void)
     /* allocate Tx/Rx buffers for RPC encoding/decoding */
     if (init_rpc_buffers() != 0)
         return -1;
+
+    /* initialize msg cache */
+    init_dp_msg_cache();
 
     /* attempt connection to DP. This step in the initialization can fail
      * if the dataplane has not yet opened the unix socket for communication. */
