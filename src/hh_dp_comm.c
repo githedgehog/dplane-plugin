@@ -205,8 +205,11 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     struct dp_msg *m;
     while((m = dp_msg_pop_unsent()) != NULL) {
         if (do_send_rpc_msg(&m->msg) == 0) {
-            /* move to in-flight list */
-            dp_msg_cache_inflight(m);
+            /* if it is a request, move to in-flight list */
+            if (m->msg.type == Request)
+                dp_msg_cache_inflight(m);
+            else
+                dp_msg_recycle(m);
         } else {
             /* send failed: put msg back at head of unsent list */
             dp_msg_unsent_push_back(m);

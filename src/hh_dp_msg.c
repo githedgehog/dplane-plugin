@@ -202,7 +202,6 @@ static void handle_rpc_response(struct RpcResponse *resp)
         zlog_err("Unable to find outstanding request");
         return;
     }
-    // FIXME: we should only cache requests, or have a dedicated list for requests..
     assert(m->msg.type == Request);
     if (!cached_matches(resp, &m->msg.request)) {
         zlog_err("Too bad! Recovered request does not match incoming response");
