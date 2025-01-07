@@ -13,7 +13,7 @@
 
 static const char *plugin_name = PLUGIN_NAME;
 
-static struct zebra_dplane_provider *prov_p;
+struct zebra_dplane_provider *prov_p = NULL;
 
 /*
  * Startup/init callback, called from the dataplane.
@@ -52,20 +52,17 @@ static int zd_hh_process(struct zebra_dplane_provider *prov)
     int counter;
     int limit;
     struct zebra_dplane_ctx *ctx;
-    enum zebra_dplane_result res;
 
     if (IS_ZEBRA_DEBUG_DPLANE)
         zlog_debug("%s: Process...", dplane_provider_get_name(prov));
 
-    limit = dplane_provider_get_work_limit(prov_p);
+    limit = dplane_provider_get_work_limit(prov);
     for (counter = 0; counter < limit; counter++) {
-        ctx = dplane_provider_dequeue_in_ctx(prov_p);
+        ctx = dplane_provider_dequeue_in_ctx(prov);
         if (!ctx)
             break;
 
-        res = zd_hh_process_update(ctx);
-        dplane_ctx_set_status(ctx, res);
-        dplane_provider_enqueue_out_ctx(prov_p, ctx);
+        zd_hh_process_update(prov, ctx);
     }
     return 0;
 }

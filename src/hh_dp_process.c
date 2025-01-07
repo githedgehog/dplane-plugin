@@ -9,19 +9,17 @@
 #include "hh_dp_msg.h"
 
 typedef enum hh_dp_res_e {
-    HH_QUEUED = ZEBRA_DPLANE_REQUEST_QUEUED,
     HH_OK = ZEBRA_DPLANE_REQUEST_SUCCESS,
     HH_FAIL = ZEBRA_DPLANE_REQUEST_FAILURE,
+    HH_QUEUED,
     HH_IGNORED,
-    HH_SKIP_KERNEL,
     HH_BUG
 } hh_dp_res_t;
 
 static const char *zd_hh_ret_str(hh_dp_res_t value) {
     switch(value) {
-        case HH_QUEUED: return "Queued";
+        case HH_QUEUED: return "Queued-to-DP";
         case HH_IGNORED: return "Ignored";
-        case HH_SKIP_KERNEL: return "Skip-kernel";
         case HH_OK: return "Ok";
         case HH_FAIL: return "Fail";
         case HH_BUG: return "Bug";
@@ -32,12 +30,13 @@ static const char *zd_hh_ret_str(hh_dp_res_t value) {
 static enum zebra_dplane_result hh_ret_to_zebra(hh_dp_res_t r) {
 
     switch(r) {
-        case HH_QUEUED:
         case HH_OK:
         case HH_FAIL:
             return r;
+        case HH_QUEUED:
+            assert(0);
+            return ZEBRA_DPLANE_REQUEST_FAILURE;
         case HH_IGNORED:
-        case HH_SKIP_KERNEL:
             return ZEBRA_DPLANE_REQUEST_SUCCESS;
         case HH_BUG:
         default:
@@ -59,16 +58,23 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
     if (safi != SAFI_UNICAST && safi != SAFI_EVPN)
         return HH_IGNORED;
 
-    /* we probably don't need local routes if process interface addresses */
+    /* dataplane may not need local routes since we send interface addresses to it */
     if (type == ZEBRA_ROUTE_LOCAL)
         return HH_IGNORED;
 
+    int r;
     switch(dplane_ctx_get_op(ctx)) {
         case DPLANE_OP_ROUTE_INSTALL:
+            r = send_rpc_request_iproute(Add, ctx);
+            break;
         case DPLANE_OP_ROUTE_UPDATE:
+            r = send_rpc_request_iproute(Update, ctx);
+            break;
         case DPLANE_OP_ROUTE_DELETE:
+            r = send_rpc_request_iproute(Del, ctx);
+            break;
         case DPLANE_OP_ROUTE_NOTIFY:
-            return HH_OK;
+            return HH_IGNORED;
         case DPLANE_OP_SYS_ROUTE_ADD:
         case DPLANE_OP_SYS_ROUTE_DELETE:
             return HH_IGNORED;
@@ -76,6 +82,7 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
             assert(0);
             return HH_BUG;
     }
+    return !r ? HH_QUEUED: HH_FAIL;
 }
 static hh_dp_res_t hh_process_ifaddr(struct zebra_dplane_ctx *ctx)
 {
@@ -97,7 +104,7 @@ static hh_dp_res_t hh_process_ifaddr(struct zebra_dplane_ctx *ctx)
             assert(0);
             return HH_BUG;
     }
-    return !r ? HH_OK: HH_FAIL;
+    return !r ? HH_QUEUED: HH_FAIL;
 }
 static hh_dp_res_t hh_process_neigh(struct zebra_dplane_ctx *ctx)
 {
@@ -106,12 +113,11 @@ static hh_dp_res_t hh_process_neigh(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_NEIGH_UPDATE:
         case DPLANE_OP_NEIGH_DELETE:
         case DPLANE_OP_NEIGH_DISCOVER:
-            return HH_OK;
+            return HH_IGNORED;
         default:
             assert(0);
             return HH_BUG;
     }
-    return HH_OK;
 }
 static hh_dp_res_t hh_process_nh(struct zebra_dplane_ctx *ctx)
 {
@@ -119,29 +125,31 @@ static hh_dp_res_t hh_process_nh(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_NH_INSTALL:
         case DPLANE_OP_NH_UPDATE:
         case DPLANE_OP_NH_DELETE:
-            return HH_OK;
+            return HH_IGNORED;
         default:
             assert(0);
             return HH_BUG;
     }
-    return HH_OK;
 }
 static hh_dp_res_t hh_process_macinfo(struct zebra_dplane_ctx *ctx)
 {
+    int r;
     switch(dplane_ctx_get_op(ctx)) {
         case DPLANE_OP_MAC_INSTALL:
+            r = send_rpc_request_rmac(Add, ctx);
+            break;
         case DPLANE_OP_MAC_DELETE:
-            return HH_OK;
+            r = send_rpc_request_rmac(Del, ctx);
+            break;
         default:
             assert(0);
             return HH_BUG;
     }
-    return HH_OK;
-
+    return !r ? HH_QUEUED: HH_FAIL;
 }
 static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
 {
-    zlog_debug("HHGW Processing [%s]... vrfid: %u", dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_vrf(ctx));
+    zlog_debug("HH-Plugin: processing [%s]... vrfid: %u", dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_vrf(ctx));
 
     switch (dplane_ctx_get_op(ctx))
     {
@@ -277,13 +285,25 @@ static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
     return HH_FAIL;
 }
 
-enum zebra_dplane_result zd_hh_process_update(struct zebra_dplane_ctx *ctx)
+void zd_hh_process_update(struct zebra_dplane_provider *prov, struct zebra_dplane_ctx *ctx)
 {
     hh_dp_res_t r = hh_process(ctx);
     zlog_debug("result: %s", zd_hh_ret_str(r));
 
-    if (r == HH_SKIP_KERNEL)
+    /* Currently, we do not want to skip kernel. If we do,
+       this should not be called from here and be selectively done
+       for certain ctx's only */
+    if (0)
         dplane_ctx_set_skip_kernel(ctx);
 
-    return hh_ret_to_zebra(r);
+    /* if we did not queue a request to dataplane (e.g. maybe because we're not interested
+     * in that piece of information, or because there was a failure) set the result and
+     * queue the ctx back to zebra.
+     */
+    if (r != HH_QUEUED) {
+        /* map result to zebra's */
+        enum zebra_dplane_result res = hh_ret_to_zebra(r);
+        dplane_ctx_set_status(ctx, res);
+        dplane_provider_enqueue_out_ctx(prov, ctx);
+    }
 }
