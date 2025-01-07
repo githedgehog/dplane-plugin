@@ -131,13 +131,28 @@ static int dp_unix_connect(const char *conn_path)
     return 0;
 }
 
+/* callback: sock is writable again */
+static void send_pending_rpc_msgs(struct event *ignored) {
+    send_rpc_msg(NULL);
+}
+
 /*
  * Plain send of RpcMsg.
  */
-int send_rpc_msg(struct RpcMsg *msg)
+static int do_send_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg, -1);
     BUG(!tx_buff, -1);
+
+    zlog_debug("Sending request #%lu: %s %s",
+            msg->request.seqn,
+            str_rpc_op(msg->request.op),
+            str_object_type(msg->request.object.type));
+
+    if (msg->type == Request && msg->request.op != Connect && !dplane_is_ready()) {
+        zlog_debug("Not sending request: dataplane has not yet answered");
+        return -1;
+    }
 
     buff_clear(tx_buff);
 
@@ -159,16 +174,14 @@ int send_rpc_msg(struct RpcMsg *msg)
                 zlog_err("Error sending msg to dataplane: %s", strerror(_err));
                 /* fallthrough */
             case EAGAIN:
-                /* sock is not writable at this point. We should cache the message in some
-                 * pending list and retry once the socket is writable again: TODO */
-                event_add_write(ev_loop, NULL /* fixme */, NULL, dp_sock, &ev_send);
+                /* sock is not writable at this point: register callback for later xmit */
+                event_add_write(ev_loop, send_pending_rpc_msgs, NULL, dp_sock, &ev_send);
                 return -1;
             case EINTR:
                 zlog_warn("Tx to dataplane was interrupted!");
                 return -1;
             default:
-                zlog_err("Fatal error sending msg to dataplane: %s", strerror(_err));
-                assert(0);
+                zlog_err("Error sending msg to dataplane: %s", strerror(_err));
                 return -1;
         }
     } else if ((index_t)r != tx_buff->w) {
@@ -178,6 +191,35 @@ int send_rpc_msg(struct RpcMsg *msg)
     /* success */
     return 0;
 }
+
+/* Main function to send an RPC message. If given a message, this function queues it for xmit
+ * in the unsent queue and attempts to send all messages queued. This function is also called
+ * from send_pending_rpc_msgs when the socket is writable again after an EAGAIN */
+ int send_rpc_msg(struct dp_msg *dp_msg)
+{
+    /* cache in unsent list, at tail, since there may be messages pending for xmit */
+    if (dp_msg)
+        dp_msg_cache_unsent(dp_msg);
+
+    /* Drain the unsent list (from head) until no more messages, or xmit fails */
+    struct dp_msg *m;
+    while((m = dp_msg_pop_unsent()) != NULL) {
+        if (do_send_rpc_msg(&m->msg) == 0) {
+            /* move to in-flight list */
+            dp_msg_cache_inflight(m);
+        } else {
+            /* send failed: put msg back at head of unsent list */
+            dp_msg_unsent_push_back(m);
+            break;
+        }
+    }
+    /* this function always succeeds. Success does not necessarily imply that a message
+     * has been sent. Generically it implies that the sending logic takes care of the
+     * message and it will be sent when possible. */
+    return 0;
+}
+
+
 
 /*
  * Actual recv on Unix sock
@@ -207,7 +249,7 @@ static int sock_recv(buff_t *buff)
 }
 
 /*
- * Recv over UniX socket with dataplane, decode messages
+ * Recv over unix socket with dataplane, decode messages
  * and call main handler
  */
 static void dp_rpc_recv(struct event *thread)
