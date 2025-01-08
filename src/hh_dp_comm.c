@@ -137,7 +137,8 @@ static void send_pending_rpc_msgs(struct event *ignored) {
 }
 
 /*
- * Plain send of RpcMsg.
+ * Plain send of RpcMsg. This function should only return success (0)
+ * if the message was sent over the socket.
  */
 static int do_send_rpc_msg(struct RpcMsg *msg)
 {
@@ -237,6 +238,8 @@ static int sock_recv(buff_t *buff)
          int _err = errno;
          switch(_err) {
              case EAGAIN:
+                 /* dp_rpc_recv() has registered callback. So, we'll retry
+                  * when polling infra notifies availability */
                  return -1;
              case EINTR:
                  zlog_warn("Rx from dataplane was interrupted!");
