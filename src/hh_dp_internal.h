@@ -10,21 +10,24 @@
 
 /* FRR redefines assert() to uncoditionally
  * abort and we may not want this in production builds,
- * at least not in the plugin. FIXME
+ * at least not in the plugin.
  */
 
-#if !DEBUG_BUILD || true
+#if !DEBUG_BUILD
 #define BUG(cond, ...)                                        \
     do {                                                      \
          if (unlikely(cond)) {                                \
-             zlog_err("BUG: '%s' at %s, %s():%d]",            \
+             zlog(LOG_CRIT, "BUG: '%s' at %s, %s():%d]",      \
                  #cond, __FILE__, __FUNCTION__, __LINE__);    \
             return __VA_ARGS__;                               \
         }                                                     \
     } while (0)
 #else
 #define BUG(cond, ...)         \
-//TODO
+    do {                       \
+        assert(!(cond));       \
+        return __VA_ARGS__;    \
+    } while (0)
 #endif
 
 #endif /* SRC_HH_DP_INTERNAL_H_ */
