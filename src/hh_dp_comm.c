@@ -97,7 +97,7 @@ fail:
     zlog_err("Failed to create unix socket");
     if (sock != NO_SOCK)
         close(sock);
-    return -1;
+    return NO_SOCK;
 }
 
 /*
@@ -245,8 +245,7 @@ static int sock_recv(buff_t *buff)
                  zlog_warn("Rx from dataplane was interrupted!");
                  return -1;
              default:
-                 zlog_err("Error receiving msg from dataplane: %s", strerror(_err));
-                 assert(0);
+                 zlog_err("Error receiving msg from dataplane socket: %s", strerror(_err));
                  return -1;
          }
      }
@@ -352,7 +351,7 @@ int init_dplane_rpc(void)
 
     /* open unix socket and bind it */
     dp_sock = dp_unix_sock_open(plugin_sock_path);
-    if (dp_sock == -1)
+    if (dp_sock == NO_SOCK)
         return -1;
 
     /* allocate Tx/Rx buffers for RPC encoding/decoding */
