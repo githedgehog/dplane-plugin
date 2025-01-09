@@ -187,26 +187,60 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
 }
 
 /* handle messages from dataplane */
-static inline bool cached_matches(struct RpcResponse *resp, struct RpcRequest *req) {
-    return (resp->op == req->op) && (resp->seqn == req->seqn);
+static inline bool got_expected_response(struct RpcResponse *resp, struct RpcRequest *req) {
+    if (unlikely((resp->seqn != req->seqn) || (resp->op != req->op))) {
+        /* We got a response that does not match the one we expected. Since Unix socks
+         * are reliable and assuming that the "connection" was not dropped, this can only
+         * happen due to: 1) a bug in this code 2) the peer (dataplane) not sending some
+         * response, reordering responses or badly sequencing them. */
+        zlog_err("Warning! recovered request (op: %s, seqn: %lu) does not match received response (op: %s, seqn: %lu) !!",
+                str_rpc_op(req->op), req->seqn, str_rpc_op(resp->op), resp->seqn);
+        return false;
+    } else {
+        return true;
+    }
+}
+static struct dp_msg *recover_request(struct RpcResponse *resp)
+{
+    BUG(!resp, NULL);
+
+    /* dequeue msg from in-flight list/queue */
+    struct dp_msg *m = dp_msg_pop_inflight();
+    if (!m) {
+        /* we got a response but had no request outstanding. Either we failed to store a request
+         * or received an unsolicited / duplicate response */
+        zlog_err("Unable to find request with seqn #%lu: there are no outstanding requests", resp->seqn);
+        return NULL;
+    }
+    /* we should recover a request, since we only cache requests */
+    if (m->msg.type != Request) {
+        zlog_err("BUG: message recovered from in-flight queue is not a request !!");
+        goto done;
+    }
+    /* make sure that the request corresponds to the response. We rely on responses not being re-ordered
+     * here, by design. Otherwise a hash table keyed on the seqn could be used, instead of a list */
+    if (!got_expected_response(resp, &m->msg.request))
+        goto done;
+
+    /* success: we recovered the right request */
+    return m;
+
+done:
+    /* drop message */
+    if (m)
+        dp_msg_recycle(m);
+    return NULL;
 }
 static void handle_rpc_response(struct RpcResponse *resp)
 {
     BUG(!prov_p);
 
-    zlog_debug("Handling response to request #%lu '%s': %s",
-            resp->seqn, str_rpc_op(resp->op), str_rescode(resp->rescode));
+    zlog_debug("Handling response to request #%lu: %s",
+            resp->seqn, str_rescode(resp->rescode));
 
-    struct dp_msg *m = dp_msg_pop_inflight();
-    if (!m) {
-        zlog_err("Unable to find outstanding request");
+    struct dp_msg *m = recover_request(resp);
+    if (!m)
         return;
-    }
-    assert(m->msg.type == Request);
-    if (!cached_matches(resp, &m->msg.request)) {
-        zlog_err("Too bad! Recovered request does not match incoming response");
-        goto done;
-    }
 
     zlog_debug("Request corresponds to %s(%s)", str_rpc_op(m->msg.request.op), str_object_type(m->msg.request.object.type));
 
@@ -242,6 +276,8 @@ done:
     /* recycle message */
     dp_msg_recycle(m);
 }
+
+/* entry point for incoming messages */
 void handle_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg);
