@@ -31,6 +31,10 @@ static struct event *ev_send = NULL;
 static int dp_sock = NO_SOCK;
 static buff_t *tx_buff;
 static buff_t *rx_buff;
+static struct fmt_buff FB = {0};
+
+/* global */
+struct fmt_buff *fb = NULL;
 
 /*
  * Close unix socket to dataplane
@@ -320,6 +324,13 @@ void fini_dplane_rpc(void)
 
     /* finalize message cache */
     fini_dp_msg_cache();
+
+    /* finalize format buffer */
+    if (fb) {
+        fini_fmt_buff(fb);
+        fb = NULL;
+    }
+
 }
 
 
@@ -348,6 +359,13 @@ static int init_rpc_buffers(void)
 int init_dplane_rpc(void)
 {
     zlog_info("Initializing HHGW dataplane RPC...");
+
+    /* initialize RPC formatting buffer */
+    if (init_fmt_buff(&FB, 0) != 0) {
+        zlog_err("RPC format buffer initialization failed!!");
+        return -1;
+    }
+    fb = &FB;
 
     /* open unix socket and bind it */
     dp_sock = dp_unix_sock_open(plugin_sock_path);

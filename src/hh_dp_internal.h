@@ -30,4 +30,7 @@
     } while (0)
 #endif
 
+/* format buffer */
+extern struct fmt_buff *fb;
+
 #endif /* SRC_HH_DP_INTERNAL_H_ */
