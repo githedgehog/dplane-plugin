@@ -29,8 +29,8 @@ static struct event *ev_connect_timer = NULL;
 static struct event *ev_recv = NULL;
 static struct event *ev_send = NULL;
 static int dp_sock = NO_SOCK;
-buff_t *tx_buff;
-buff_t *rx_buff;
+static buff_t *tx_buff;
+static buff_t *rx_buff;
 
 /*
  * Close unix socket to dataplane
