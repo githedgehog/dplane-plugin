@@ -30,6 +30,7 @@ set(HH_DPLANE_SRC
     hh_dp_msg.c
     hh_dp_msg_cache.c
     hh_dp_utils.c
+    hh_dp_rpc_stats.c
 )
 
 add_library(hh_dplane SHARED ${HH_DPLANE_SRC})
