@@ -137,6 +137,7 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
     }
 }
 
+/* map FRR's route types to the RPC types */
 static RouteType encode_route_type(unsigned int zebra_route_type) {
     switch(zebra_route_type) {
         case ZEBRA_ROUTE_CONNECT: return Connected;
@@ -235,14 +236,17 @@ static void handle_rpc_response(struct RpcResponse *resp)
 {
     BUG(!prov_p);
 
-    zlog_debug("Handling response to request #%lu: %s",
-            resp->seqn, str_rescode(resp->rescode));
-
+    /* lookup the request that we cached until a response was received */
     struct dp_msg *m = recover_request(resp);
     if (!m)
         return;
 
-    zlog_debug("Request corresponds to %s(%s)", str_rpc_op(m->msg.request.op), str_object_type(m->msg.request.object.type));
+    /* log outcome of request */
+    if (resp->rescode == Ok)
+        zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+    else
+        zlog_err("Op '%s' FAILED for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+
 
     switch(resp->op) {
         case Connect:
@@ -281,6 +285,9 @@ done:
 void handle_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg);
+
+    zlog_debug("Handling %s", fmt_rpc_msg(fb, true, msg));
+
     switch(msg->type) {
         case Response:
             handle_rpc_response(&msg->response);

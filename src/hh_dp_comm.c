@@ -149,19 +149,16 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     BUG(!msg, -1);
     BUG(!tx_buff, -1);
 
-    zlog_debug("Sending request #%lu: %s %s",
-            msg->request.seqn,
-            str_rpc_op(msg->request.op),
-            str_object_type(msg->request.object.type));
+    zlog_debug("Sending %s", fmt_rpc_msg(fb, true, msg));
 
+    /* should not send messages until connect request succeeds */
     if (msg->type == Request && msg->request.op != Connect && !dplane_is_ready()) {
         zlog_debug("Not sending request: dataplane has not yet answered");
         return -1;
     }
 
-    buff_clear(tx_buff);
-
     /* encode the message into the tx buffer */
+    buff_clear(tx_buff);
     int r = encode_msg(tx_buff, msg);
     if (r != E_OK ) {
         zlog_err("Fatal: failed to encode RPC message: %s", err2str(r));
