@@ -136,7 +136,7 @@ static int dp_unix_connect(const char *conn_path)
 }
 
 /* callback: sock is writable again */
-static void send_pending_rpc_msgs(struct event *ignored) {
+void send_pending_rpc_msgs(struct event *ignored) {
     send_rpc_msg(NULL);
 }
 

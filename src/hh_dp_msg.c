@@ -253,6 +253,10 @@ static void handle_rpc_response(struct RpcResponse *resp)
             if (!dplane_acked_connect) {
                 zlog_err("Dataplane refused Connect request. Aborting....");
                 abort();
+            } else {
+                /* attempt to send messages that we cached because DP had not opened
+                 * socket or we had not received response to Connect request. */
+                send_pending_rpc_msgs(NULL);
             }
             break;
         case Add:

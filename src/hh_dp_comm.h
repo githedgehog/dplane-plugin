@@ -15,4 +15,7 @@ void fini_dplane_rpc(void);
  * object. */
 int send_rpc_msg(struct dp_msg *dp_msg);
 
+/* send rpc messages awaiting to be sent */
+void send_pending_rpc_msgs(struct event *ignored);
+
 #endif /* SRC_HH_DP_COMM_H_ */
