@@ -16,22 +16,21 @@
 #include "hh_dp_msg_cache.h"
 #include "hh_dp_msg.h"
 
-bool dplane_acked_connect = false;
+static bool dplane_acked_connect = false;
 bool dplane_is_ready(void) {
     return dplane_acked_connect;
 }
+static uint64_t seqnum = 1;
 
 /* Build an Rpc Msg of type request */
 static struct dp_msg *dp_request_new(RpcOp Op, struct zebra_dplane_ctx *ctx)
 {
     BUG(!ctx && Op != Connect, NULL); /* all requests except connect require a context */
-
-    static uint64_t seqnum = 1;
     struct dp_msg *m = dp_msg_new();  /* FRR's allocator aborts in case of OOM */
     if (m) {
         m->msg.type = Request;
         m->msg.request.op = Op;
-        m->msg.request.seqn = seqnum++;
+        m->msg.request.seqn = Op == Connect ? 0 : seqnum++;
         m->ctx = ctx;
     }
     return m;

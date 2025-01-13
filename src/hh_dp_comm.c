@@ -197,8 +197,15 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
 /* Main function to send an RPC message. If given a message, this function queues it for xmit
  * in the unsent queue and attempts to send all messages queued. This function is also called
  * from send_pending_rpc_msgs when the socket is writable again after an EAGAIN */
- int send_rpc_msg(struct dp_msg *dp_msg)
+int send_rpc_msg(struct dp_msg *dp_msg)
 {
+    /* If we get a message and is Connect request, let it overtake all prior cached requests */
+    if (dp_msg && dp_msg->msg.type == Request && dp_msg->msg.request.op == Connect) {
+        if (do_send_rpc_msg(&dp_msg->msg) == 0)
+            dp_msg_cache_inflight(dp_msg);
+        return 0;
+    }
+
     /* cache in unsent list, at tail, since there may be messages pending for xmit */
     if (dp_msg)
         dp_msg_cache_unsent(dp_msg);
