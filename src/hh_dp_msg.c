@@ -14,6 +14,7 @@
 #include "hh_dp_comm.h" /* send_rpc_msg() && dplane_is_ready() */
 #include "hh_dp_process.h" /* struct zebra_dplane_provider */
 #include "hh_dp_msg_cache.h"
+#include "hh_dp_rpc_stats.h"
 #include "hh_dp_msg.h"
 
 static uint64_t seqnum = 1;
@@ -271,6 +272,9 @@ static void handle_rpc_response(struct RpcResponse *resp)
     struct dp_msg *m = recover_request(resp);
     if (!m)
         return;
+
+    /* account */
+    rpc_count_request_replied(m->msg.request.op, m->msg.request.object.type, resp->rescode);
 
     /* log outcome of request */
     if (resp->rescode == Ok)

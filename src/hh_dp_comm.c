@@ -18,6 +18,7 @@
 #include "hh_dp_comm.h"
 #include "hh_dp_msg.h"
 #include "hh_dp_msg_cache.h"
+#include "hh_dp_rpc_stats.h"
 
 /* fw decl */
 static void dp_connect(struct event *e);
@@ -225,6 +226,7 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     buff_clear(tx_buff);
     int r = encode_msg(tx_buff, msg);
     if (r != E_OK ) {
+        rpc_count_encode_failure();
         zlog_err("Fatal: failed to encode RPC message: %s", err2str(r));
         return -1;
     }
@@ -277,6 +279,7 @@ int send_rpc_msg(struct dp_msg *dp_msg)
     /* If we get a message for xmit and is a Connect, let it overtake all prior cached requests */
     if (dp_msg && dp_msg->msg.type == Request && dp_msg->msg.request.op == Connect) {
         if (do_send_rpc_msg(&dp_msg->msg) == 0) {
+            rpc_count_request_sent(dp_msg->msg.request.op, dp_msg->msg.request.object.type);
             dp_msg_cache_inflight(dp_msg);
             return 0;
         } else {
@@ -296,6 +299,7 @@ int send_rpc_msg(struct dp_msg *dp_msg)
         if (do_send_rpc_msg(&m->msg) == 0) {
             /* Tx succeeded: if msg is request, move to in-flight list; else, recycle */
             if (m->msg.type == Request) {
+                rpc_count_request_sent(m->msg.request.op, m->msg.request.object.type);
                 dp_msg_cache_inflight(m);
             } else {
                 dp_msg_recycle(m);
@@ -360,6 +364,7 @@ static void dp_rpc_recv(struct event *thread)
         /* decode message */
         r = decode_msg(rx_buff, &msg);
         if (r != E_OK) {
+            rpc_count_decode_failure();
             // TODO: this is unrecoverable ... ?
             zlog_err("Error decoding msg from dataplane: %s", err2str(r));
             return;
