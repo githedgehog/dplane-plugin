@@ -10,6 +10,7 @@
 #include "hh_dp_process.h"
 #include "hh_dp_comm.h"
 #include "hh_dp_utils.h"
+#include "hh_dp_vty.h"
 
 #define PLUGIN_NAME "Hedgehog-GW-plugin"
 
@@ -58,6 +59,8 @@ static int process_plugin_opt(int opt, const char *opt_arg, const struct option 
 static int zd_hh_start(struct zebra_dplane_provider *prov)
 {
     zlog_info("%s: Starting...", dplane_provider_get_name(prov));
+
+    hh_dp_vty_init();
 
     int r = init_dplane_rpc();
     if (r != 0) {
