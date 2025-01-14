@@ -227,9 +227,45 @@ done:
         dp_msg_recycle(m);
     return NULL;
 }
-static void handle_rpc_response(struct RpcResponse *resp)
+static void handle_rpc_connect_response(struct RpcResponse *resp)
+{
+    BUG(!resp);
+
+    if (resp->rescode == Ok) {
+        if (!dplane_is_ready())
+            zlog_info("Dataplane positively acked Connect.");
+
+        /* allow further communications */
+        dplane_set_ready(true);
+
+        /* attempt to send messages that we cached because DP had not opened
+         * socket or we had not received response to Connect request. */
+        send_pending_rpc_msgs(NULL);
+
+    } else {
+        zlog_err("Dataplane refused Connect request. Aborting....");
+        abort();
+    }
+}
+static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
 {
     BUG(!prov_p);
+    BUG(!m);
+
+    if (m->ctx) {
+        /* set the result */
+        enum zebra_dplane_result result = rescode == Ok ? ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
+        dplane_ctx_set_status(m->ctx, result);
+
+        /* queue back to zebra */
+        dplane_provider_enqueue_out_ctx(prov_p, m->ctx);
+        dplane_provider_work_ready();
+        m->ctx = NULL; /* imposed to allow recycle */
+    }
+}
+static void handle_rpc_response(struct RpcResponse *resp)
+{
+    BUG(!resp);
 
     /* lookup the request that we cached until a response was received */
     struct dp_msg *m = recover_request(resp);
@@ -242,36 +278,14 @@ static void handle_rpc_response(struct RpcResponse *resp)
     else
         zlog_err("Op '%s' FAILED for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
 
-
     switch(resp->op) {
         case Connect:
-            if (resp->rescode == Ok) {
-                if (!dplane_is_ready())
-                    zlog_info("Dataplane positivelt acked Connect.");
-
-                /* allow further communications */
-                dplane_set_ready(true);
-
-                /* attempt to send messages that we cached because DP had not opened
-                 * socket or we had not received response to Connect request. */
-                send_pending_rpc_msgs(NULL);
-
-            } else {
-                zlog_err("Dataplane refused Connect request. Aborting....");
-                abort();
-            }
+            handle_rpc_connect_response(resp);
             break;
         case Add:
         case Del:
         case Update:
-            if (m->ctx) {
-                /* set the result and queue the request back to zebra */
-                enum zebra_dplane_result result = resp->rescode == Ok ? ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
-                dplane_ctx_set_status(m->ctx, result);
-                dplane_provider_enqueue_out_ctx(prov_p, m->ctx);
-                m->ctx = NULL;
-                dplane_provider_work_ready();
-            }
+            handle_rpc_ctx_response(m, resp->rescode);
             break;
         case Get:
             /* Not handled yet */
@@ -281,7 +295,6 @@ static void handle_rpc_response(struct RpcResponse *resp)
             break;
     }
 
-done:
     /* recycle message */
     dp_msg_recycle(m);
 }
