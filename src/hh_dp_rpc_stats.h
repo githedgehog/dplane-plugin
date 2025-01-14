@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <dplane-rpc/proto.h> /* Codes for RpcOp and ObjType */
+#include "lib/vty.h"
 
 /* A stats cell for a request */
 struct rpc_req_stat_cell {
