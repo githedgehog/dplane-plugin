@@ -32,9 +32,20 @@ static int dp_sock = NO_SOCK;
 static buff_t *tx_buff;
 static buff_t *rx_buff;
 static struct fmt_buff FB = {0};
+static bool __dplane_is_ready = false;
 
 /* global */
 struct fmt_buff *fb = NULL;
+
+/* mark state of dataplane: readiness happens when DP replies to Connect successfully */
+void dplane_set_ready(bool ready) {
+    __dplane_is_ready = ready;
+}
+
+/* Tell if communication with dataplane has been established */
+bool dplane_is_ready(void) {
+    return __dplane_is_ready;
+}
 
 /*
  * Close unix socket to dataplane

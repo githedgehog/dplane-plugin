@@ -16,10 +16,6 @@
 #include "hh_dp_msg_cache.h"
 #include "hh_dp_msg.h"
 
-static bool dplane_acked_connect = false;
-bool dplane_is_ready(void) {
-    return dplane_acked_connect;
-}
 static uint64_t seqnum = 1;
 
 /* Build an Rpc Msg of type request */
@@ -249,14 +245,20 @@ static void handle_rpc_response(struct RpcResponse *resp)
 
     switch(resp->op) {
         case Connect:
-            dplane_acked_connect = (resp->rescode == Ok);
-            if (!dplane_acked_connect) {
-                zlog_err("Dataplane refused Connect request. Aborting....");
-                abort();
-            } else {
+            if (resp->rescode == Ok) {
+                if (!dplane_is_ready())
+                    zlog_info("Dataplane positivelt acked Connect.");
+
+                /* allow further communications */
+                dplane_set_ready(true);
+
                 /* attempt to send messages that we cached because DP had not opened
                  * socket or we had not received response to Connect request. */
                 send_pending_rpc_msgs(NULL);
+
+            } else {
+                zlog_err("Dataplane refused Connect request. Aborting....");
+                abort();
             }
             break;
         case Add:

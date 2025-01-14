@@ -3,9 +3,6 @@
 
 #include <dplane-rpc/dplane-rpc.h>
 
-/* dataplane was succesfully contacted, bidirectionally */
-bool dplane_is_ready(void);
-
 /* Functions to send dataplane RPC requests */
 int send_rpc_request_connect(void);
 int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx);
