@@ -19,6 +19,9 @@
 #include "hh_dp_msg.h"
 #include "hh_dp_msg_cache.h"
 
+/* fw decl */
+static void dp_connect(struct event *e);
+
 #define DPLANE_CONNECT_SEC 5 /* default connection-retry timer value */
 #define NO_SOCK -1 /* sock descriptor initializer */
 
@@ -148,6 +151,7 @@ static int dp_unix_connect(const char *conn_path)
 
 /* callback: sock is writable again */
 void send_pending_rpc_msgs(struct event *ignored) {
+    zlog_debug("Sending pending (unsent) messages...");
     send_rpc_msg(NULL);
 }
 
@@ -184,17 +188,26 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
         switch(_err) {
             case ENOBUFS:
             case ENOMEM:
-                zlog_err("Error sending msg to dataplane: %s", strerror(_err));
-                /* fallthrough */
+                zlog_err("Temporary error sending msg to dataplane: %s(%d)", strerror(_err), _err);
+            /* fallthrough */
             case EAGAIN:
-                /* sock is not writable at this point: register callback for later xmit */
+            /* sock is not writable at this point: register callback for later xmit */
                 event_add_write(ev_loop, send_pending_rpc_msgs, NULL, dp_sock, &ev_send);
                 return -1;
             case EINTR:
                 zlog_warn("Tx to dataplane was interrupted!");
                 return -1;
+            /* errors that require reconnecting */
+            case EPIPE:
+            case ENOTCONN:
+            case ECONNREFUSED:
+            case ECONNRESET:
+                zlog_err("Connection error sending msg to dataplane: %s(%d)", strerror(_err), _err);
+                if (ev_connect_timer == NULL)
+                    dp_connect(NULL);
+                return -1;
             default:
-                zlog_err("Error sending msg to dataplane: %s", strerror(_err));
+                zlog_err("Error sending msg to dataplane: %s(%d)", strerror(_err), _err);
                 return -1;
         }
     } else if ((index_t)r != tx_buff->w) {
@@ -207,14 +220,20 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
 
 /* Main function to send an RPC message. If given a message, this function queues it for xmit
  * in the unsent queue and attempts to send all messages queued. This function is also called
- * from send_pending_rpc_msgs when the socket is writable again after an EAGAIN */
+ * from send_pending_rpc_msgs() which is called when the socket is writable again after an EAGAIN or
+ * after a reconnect and other cases. */
 int send_rpc_msg(struct dp_msg *dp_msg)
 {
-    /* If we get a message and is Connect request, let it overtake all prior cached requests */
+    /* If we get a message for xmit and is a Connect, let it overtake all prior cached requests */
     if (dp_msg && dp_msg->msg.type == Request && dp_msg->msg.request.op == Connect) {
-        if (do_send_rpc_msg(&dp_msg->msg) == 0)
+        if (do_send_rpc_msg(&dp_msg->msg) == 0) {
             dp_msg_cache_inflight(dp_msg);
-        return 0;
+            return 0;
+        } else {
+            zlog_err("Failed to send Connect request. Will retry later...");
+            dp_msg_recycle(dp_msg);
+            return -1;
+        }
     }
 
     /* cache in unsent list, at tail, since there may be messages pending for xmit */
@@ -225,11 +244,12 @@ int send_rpc_msg(struct dp_msg *dp_msg)
     struct dp_msg *m;
     while((m = dp_msg_pop_unsent()) != NULL) {
         if (do_send_rpc_msg(&m->msg) == 0) {
-            /* if it is a request, move to in-flight list */
-            if (m->msg.type == Request)
+            /* Tx succeeded: if msg is request, move to in-flight list; else, recycle */
+            if (m->msg.type == Request) {
                 dp_msg_cache_inflight(m);
-            else
+            } else {
                 dp_msg_recycle(m);
+            }
         } else {
             /* send failed: put msg back at head of unsent list */
             dp_msg_unsent_push_back(m);
@@ -317,8 +337,12 @@ static void dp_connect(struct event *e)
     } else {
         ev_connect_timer = NULL;
 
-        /* send Connect RPC request with versioning info */
-        send_rpc_request_connect();
+        /* send Connect RPC request with versioning info, only if we never got a reply back */
+        if (!dplane_is_ready())
+            send_rpc_request_connect();
+
+        /* If this is a reconnect (we got disconnected), there may be pending messages */
+        send_pending_rpc_msgs(NULL);
 
         /* sched recv */
         event_add_read(ev_loop, dp_rpc_recv, NULL, dp_sock, &ev_recv);

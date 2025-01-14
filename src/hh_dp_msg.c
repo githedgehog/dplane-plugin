@@ -11,7 +11,7 @@
 #include "zebra/debug.h"
 
 #include "hh_dp_internal.h"
-#include "hh_dp_comm.h" /* send_rpc_msg() */
+#include "hh_dp_comm.h" /* send_rpc_msg() && dplane_is_ready() */
 #include "hh_dp_process.h" /* struct zebra_dplane_provider */
 #include "hh_dp_msg_cache.h"
 #include "hh_dp_msg.h"
