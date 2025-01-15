@@ -5,6 +5,28 @@
 /* RPC statistics */
 static struct rpc_stats RPC_STATS = {0};
 
+/* IO: tx */
+void rpc_count_tx(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.tx_ok, 1, memory_order_relaxed);
+}
+void rpc_count_tx_failure(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.tx_failure, 1, memory_order_relaxed);
+}
+void rpc_count_tx_eagain(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.tx_eagain, 1, memory_order_relaxed);
+}
+
+/* IO: rx */
+void rpc_count_rx(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.rx_ok, 1, memory_order_relaxed);
+}
+void rpc_count_rx_failure(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.rx_failure, 1, memory_order_relaxed);
+}
+void rpc_count_rx_eagain(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.rx_eagain, 1, memory_order_relaxed);
+}
+
 /* account: RPC encode failures */
 void rpc_count_encode_failure(void) {
     atomic_fetch_add_explicit(&RPC_STATS.msg_encode_failure, 1, memory_order_relaxed);
