@@ -235,6 +235,8 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     r = send(dp_sock, tx_buff->storage, tx_buff->w, MSG_DONTWAIT);
     if (r == -1) {
         int _err = errno;
+        (_err != EAGAIN) ? rpc_count_tx_failure() : rpc_count_tx_eagain();
+
         struct event_loop *ev_loop = dplane_get_thread_master();
         switch(_err) {
             case ENOBUFS:
@@ -267,6 +269,7 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
         return -1;
     }
     /* success */
+    rpc_count_tx();
     return 0;
 }
 
@@ -329,6 +332,7 @@ static int sock_recv(buff_t *buff)
      int r = recv(dp_sock, buff->storage, buff->capacity, MSG_DONTWAIT);
      if (r == -1) {
          int _err = errno;
+         (_err != EAGAIN) ? rpc_count_rx_failure() : rpc_count_rx_eagain();
          switch(_err) {
              case EAGAIN:
                  /* dp_rpc_recv() has registered callback. So, we'll retry
@@ -343,6 +347,7 @@ static int sock_recv(buff_t *buff)
          }
      }
      buff->w = (index_t)r;
+     rpc_count_rx();
      return r;
 }
 
