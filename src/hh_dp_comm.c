@@ -32,6 +32,7 @@ static struct event *ev_connect_timer = NULL;
 static struct event *ev_recv = NULL;
 static struct event *ev_send = NULL;
 static int dp_sock = NO_SOCK;
+static bool dp_sock_connected = false;
 static buff_t *tx_buff;
 static buff_t *rx_buff;
 static struct fmt_buff FB = {0};
@@ -50,6 +51,11 @@ bool dplane_is_ready(void) {
     return __dplane_is_ready;
 }
 
+/* Tell if dataplane socket is connected */
+bool dplane_sock_is_connected(void) {
+    return dp_sock_connected;
+}
+
 /*
  * Close unix socket to dataplane
  */
@@ -59,6 +65,7 @@ static void dp_unix_sock_close(void)
         zlog_debug("Closing socket to dataplane...");
         close(dp_sock);
         dp_sock = NO_SOCK;
+        dp_sock_connected = false;
     }
     if (unlink(plugin_sock_path) == 0)
         zlog_debug("Deleted unix path at '%s'", plugin_sock_path);
@@ -203,6 +210,7 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
             case ECONNREFUSED:
             case ECONNRESET:
                 zlog_err("Connection error sending msg to dataplane: %s(%d)", strerror(_err), _err);
+                dp_sock_connected = false;
                 if (ev_connect_timer == NULL)
                     dp_connect(NULL);
                 return -1;
@@ -336,6 +344,7 @@ static void dp_connect(struct event *e)
         event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
     } else {
         ev_connect_timer = NULL;
+        dp_sock_connected = true;
 
         /* send Connect RPC request with versioning info, only if we never got a reply back */
         if (!dplane_is_ready())
