@@ -11,25 +11,17 @@
  * return 0 on success and != 0 otherwise. The callback should not take any ownership on them.
  *
  *   Opt:
- *       the value/code of the short/long option matched or OPT_UNK
+ *       the value/code of the short/long option matched
  *   opt_arg:
  *       in options that can have/require values, the value of optarg.
- *   indexp:
- *       in long options, the index in array long_opts for the option the callback is invoked for.
- *       indexp is only valid if distinct from INDEXP_UNSET. When using short options, indexp always
- *       equals INDEXP_UNSET.
- *
- *   short_opts:
- *       The string of short options that was provided to plugin_args_parse(). See below.
- *   long_opts:
- *       The array of struct option passed when invoking plugin_args_parse(). See below.
+ *   long_opt:
+ *       A pointer to the option within the long_opts array of struct options provided to
+ *       plugin_args_parse() that the value of Opt corresponds to.
  */
 typedef int (*parse_opt_cb)(
         int opt,
         const char *opt_arg,
-        int indexp,
-        const char *short_opts,
-        const struct option *long_opts
+        const struct option *long_opt
 );
 
 

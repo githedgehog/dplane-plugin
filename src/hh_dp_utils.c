@@ -148,7 +148,7 @@ static int plugin_getopts(struct plugin_args *a, const struct option *long_opts,
         }
 
         /* call callback to process the option */
-        if (cb(opt, optarg, indexp, short_opts, long_opts) != 0)
+        if (cb(opt, optarg, hit_opt) != 0)
             return -1;
 
     } while (1);
