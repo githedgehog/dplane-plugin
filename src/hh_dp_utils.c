@@ -147,6 +147,13 @@ static int plugin_getopts(struct plugin_args *a, const struct option *long_opts,
             return -1;
         }
 
+        /* early fail if an option requires an argument and it is not provided.
+         * This way callbacks need not check */
+        if (hit_opt->has_arg == required_argument && !optarg) {
+            zlog_err("Missing argument (optarg) for option --%s ('%c')", hit_opt->name, (char)hit_opt->val);
+            return -1;
+        }
+
         /* call callback to process the option */
         if (cb(opt, optarg, hit_opt) != 0)
             return -1;
