@@ -5,15 +5,52 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/debug.h"
 
+#include "hh_dp_internal.h"
 #include "hh_dp_config.h"
 #include "hh_dp_process.h"
 #include "hh_dp_comm.h"
+#include "hh_dp_utils.h"
 
 #define PLUGIN_NAME "Hedgehog-GW-plugin"
 
 static const char *plugin_name = PLUGIN_NAME;
 
 struct zebra_dplane_provider *prov_p = NULL;
+
+/* plugin options */
+static const struct option plugin_long_opts[] = {
+    {"local-dp-sock-path", required_argument, 0, 'l'},
+    {"remote-dp-sock-path", required_argument, 0, 'r'},
+    {NULL}
+};
+
+/* Main processor of plugin options */
+static int process_plugin_opt(int opt, const char *opt_arg, const struct option *long_opt)
+{
+    int r = 0;
+
+    zlog_debug("Processing HHGW plugin option '%s' ...", long_opt->name);
+
+    switch(opt) {
+        case 0:
+            break;
+        case 'l':
+            /* Set local unix path (Todo) */
+            break;
+        case 'r':
+            /* Set remote unix path (Todo) */
+            break;
+        default:
+            /* If we get here, either there is a bug in the utils,
+             * or the plugin_long_opts[] array defines an option
+             * that we did not handle in the switch!
+             * (We cannot fix this at build time)
+             */
+            zlog_err("Missing handler for option '%c'", (char)opt);
+            return -1;
+    }
+    return r;
+}
 
 /*
  * Startup/init callback, called from the dataplane.
@@ -114,6 +151,16 @@ static int module_init(void)
     zlog_info("Dataplane plugin version %s (%s)", VER_STRING, BUILD_TYPE);
     zlog_info("Commit %s branch %s tag %s", GIT_COMMIT, GIT_BRANCH, GIT_TAG);
     zlog_info("Built on %s (%s)", BUILD_DATE, BUILD_TYPE);
+
+    /* parse plugin arguments */
+    if (plugin_args_parse(PLUGIN_NAME, THIS_MODULE->load_args,
+            plugin_long_opts, process_plugin_opt) != 0) {
+
+        zlog_err("Fatal: errors parsing plugin parameters");
+
+        /* will crash */
+        return 1;
+    }
 
     hook_register(frr_late_init, init_hh_dplane_plugin);
     return 0;
