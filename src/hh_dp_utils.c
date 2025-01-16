@@ -111,12 +111,23 @@ static void build_short_opts(char *short_opts, const struct option *long_opts)
     short_opts[c] = '\0';
 }
 
+/* find the option in array long_opts having the value 'val'. End of
+ * long_opts array is determined by presence of name */
+static const struct option *find_opt(int val, const struct option *long_opts) {
+    for(const struct option *opt = long_opts; opt->name; opt++) {
+        if (opt->val == val)
+            return opt;
+    }
+    return NULL;
+}
+
+
 /* parse plugin options */
 static int plugin_getopts(struct plugin_args *a, const struct option *long_opts, parse_opt_cb cb)
 {
     BUG(!a || !long_opts || !cb, -1);
 
-    char short_opts [MAX_NUM_OPTS*3 + 1];
+    char short_opts [MAX_NUM_OPTS*3 + 1] = {0};
     build_short_opts(short_opts, long_opts);
 
     int opt;
@@ -127,6 +138,14 @@ static int plugin_getopts(struct plugin_args *a, const struct option *long_opts,
             break;
         if (opt == OPT_UNK) /* unrecognized opt / missing arg */
             return -1;
+
+        /* lookup the option corresponding to opt. If a long opt was supplied, indexp
+         * should provide the index. When using short opts, we look up the option from the value opt */
+        const struct option *hit_opt = (indexp != INDEXP_UNSET) ? &long_opts[indexp] : find_opt(opt, long_opts);
+        if (!hit_opt) {
+            zlog_err("No option found matching opt val '%c'", opt);
+            return -1;
+        }
 
         /* call callback to process the option */
         if (cb(opt, optarg, indexp, short_opts, long_opts) != 0)
