@@ -14,6 +14,9 @@
 /* delimiter */
 #define DELIM " "
 
+/* Max number of opts - should be never exceeded */
+#define MAX_NUM_OPTS 64
+
 /* Internal */
 #define MAX_ARGS 64
 struct plugin_args {
@@ -69,8 +72,8 @@ static int plugin_args_tokenize(struct plugin_args *a, const char *argv0, const 
         goto fail;
 
     char *tok = NULL;
-    char *saveptr = NULL;
     do {
+        char *saveptr;
         tok = strtok_r(a->argc == 1 ? dup : NULL, DELIM, &saveptr);
         if (tok)
             plugin_args_push(a, tok);
@@ -87,10 +90,34 @@ fail:
     return -1;
 }
 
-/* parse plugin options */
-static int plugin_getopts(struct plugin_args *a, const char *short_opts, const struct option *long_opts, parse_opt_cb cb)
+/* Build short opts from long opts */
+static void build_short_opts(char *short_opts, const struct option *long_opts)
 {
-    BUG(!a || !short_opts || !long_opts || !cb, -1);
+    int c = 0;
+    for(const struct option *opt = long_opts; opt->name; opt++) {
+        short_opts[c++] = (char)opt->val;
+        switch (opt->has_arg) {
+            case required_argument:
+                short_opts[c++] = ':';
+                break;
+            case optional_argument:
+                short_opts[c++] = ':';
+                short_opts[c++] = ':';
+                break;
+            default:
+                break;
+        }
+    }
+    short_opts[c] = '\0';
+}
+
+/* parse plugin options */
+static int plugin_getopts(struct plugin_args *a, const struct option *long_opts, parse_opt_cb cb)
+{
+    BUG(!a || !long_opts || !cb, -1);
+
+    char short_opts [MAX_NUM_OPTS*3 + 1];
+    build_short_opts(short_opts, long_opts);
 
     int opt;
     do {
@@ -98,7 +125,7 @@ static int plugin_getopts(struct plugin_args *a, const char *short_opts, const s
         opt = getopt_long(a->argc, a->argv, short_opts, long_opts, &indexp);
         if (opt == EOF) /* Done */
             break;
-        if (opt == OPT_UNK) /* unrecognized option / missing arg */
+        if (opt == OPT_UNK) /* unrecognized opt / missing arg */
             return -1;
 
         /* call callback to process the option */
@@ -111,7 +138,7 @@ static int plugin_getopts(struct plugin_args *a, const char *short_opts, const s
 }
 
 /* main function to parse plugin args */
-int plugin_args_parse(const char *argv0, const char *args_str, const char *short_opts, const struct option *long_opts, parse_opt_cb cb)
+int plugin_args_parse(const char *argv0, const char *args_str, const struct option *long_opts, parse_opt_cb cb)
 {
     optind = 0; /* reset internal state in case of multiple invocations */
     struct plugin_args a;
@@ -126,7 +153,7 @@ int plugin_args_parse(const char *argv0, const char *args_str, const char *short
 
     /* process the (argc, argv[]) in plugin_args with getopt and the provided short / long opts.
      * For each valid option, invoke the provided callback 'cb' */
-    int r = plugin_getopts(&a, short_opts, long_opts, cb);
+    int r = plugin_getopts(&a, long_opts, cb);
 
     /* free tokens */
     plugin_args_free(&a);

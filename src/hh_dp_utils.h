@@ -36,8 +36,7 @@ typedef int (*parse_opt_cb)(
 /* Parse the options passed as a single string in args_str according to the specified short options and long options.
  * For each valid option encountered, the callback parse_opt_cb will be invoked.
  */
-int plugin_args_parse(const char *argv0, const char *args_str, const char *short_opts,
-        const struct option *long_opts, parse_opt_cb cb);
+int plugin_args_parse(const char *argv0, const char *args_str, const struct option *long_opts, parse_opt_cb cb);
 
 
 #endif /* SRC_HH_DP_UTILS_H_ */
