@@ -1,0 +1,134 @@
+#define _POSIX_C_SOURCE 202501L
+#define _GNU_SOURCE
+
+#include "config.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <getopt.h>
+
+#include "hh_dp_utils.h"
+#include "hh_dp_internal.h"
+
+/* delimiter */
+#define DELIM " "
+
+/* Internal */
+#define MAX_ARGS 64
+struct plugin_args {
+    int argc;
+    char *argv[MAX_ARGS];
+};
+
+/* free internal stuff alloced for plugin_args */
+static void plugin_args_free(struct plugin_args *a)
+{
+    BUG(!a);
+    for(int i = 0; i < MAX_ARGS && a->argc; i++) {
+        if (a->argv[i])
+            free(a->argv[i]);
+        a->argc--;
+    }
+    memset(a, 0, sizeof(*a));
+}
+
+/* push a token into a plugin_arg */
+static int plugin_args_push(struct plugin_args *a, const char *token)
+{
+    BUG(!a || !token, -1);
+    if (a->argc >= MAX_ARGS - 1)
+        return -1;
+
+    char *tokdup = strdup(token);
+    if (!tokdup)
+        return -1;
+    a->argv[a->argc++] = tokdup;
+    return 0;
+}
+
+/* initialize plugin_args object */
+static int plugin_args_init(struct plugin_args *a, const char *argv0)
+{
+    BUG(!a , -1);
+    memset(a, 0, sizeof(*a));
+    return plugin_args_push(a, argv0);
+}
+
+/* populate plugin_args object from a string containing args (long / short) */
+static int plugin_args_tokenize(struct plugin_args *a, const char *argv0, const char *args_str)
+{
+    plugin_args_init(a, argv0);
+
+    if (!strlen(args_str))
+        return 0;
+
+    /* must dup input str as strtok_x would overwrite its arg */
+    char *dup = strdup(args_str);
+    if (!dup)
+        goto fail;
+
+    char *tok = NULL;
+    char *saveptr = NULL;
+    do {
+        tok = strtok_r(a->argc == 1 ? dup : NULL, DELIM, &saveptr);
+        if (tok)
+            plugin_args_push(a, tok);
+    } while (tok && a->argc < MAX_ARGS - 1);
+
+    free(dup);
+    return 0;
+
+fail:
+    if (dup)
+        free(dup);
+    if (a)
+        plugin_args_free(a);
+    return -1;
+}
+
+/* parse plugin options */
+static int plugin_getopts(struct plugin_args *a, const char *short_opts, const struct option *long_opts, parse_opt_cb cb)
+{
+    BUG(!a || !short_opts || !long_opts || !cb, -1);
+
+    int opt;
+    do {
+        int indexp = INDEXP_UNSET;
+        opt = getopt_long(a->argc, a->argv, short_opts, long_opts, &indexp);
+        if (opt == EOF) /* Done */
+            break;
+        if (opt == OPT_UNK) /* unrecognized option / missing arg */
+            return -1;
+
+        /* call callback to process the option */
+        if (cb(opt, optarg, indexp, short_opts, long_opts) != 0)
+            return -1;
+
+    } while (1);
+
+    return 0;
+}
+
+/* main function to parse plugin args */
+int plugin_args_parse(const char *argv0, const char *args_str, const char *short_opts, const struct option *long_opts, parse_opt_cb cb)
+{
+    optind = 0; /* reset internal state in case of multiple invocations */
+    struct plugin_args a;
+
+    /* tokenize args str into (argc, argv[]) in plugin args. Argv0 is needed because
+     * getopt_xyz() friends assume that argv[0] is program name. So we must push 'some' name.
+     * The value of argv0 will not be processed by getopt, but may be displayed in errors
+     * in case a wrong option is passed. Hence caller should specify it so that something meaningful
+     * is displayed on error */
+    if (plugin_args_tokenize(&a, argv0, args_str) != 0)
+        return -1;
+
+    /* process the (argc, argv[]) in plugin_args with getopt and the provided short / long opts.
+     * For each valid option, invoke the provided callback 'cb' */
+    int r = plugin_getopts(&a, short_opts, long_opts, cb);
+
+    /* free tokens */
+    plugin_args_free(&a);
+    return r;
+}
