@@ -277,10 +277,12 @@ static void handle_rpc_response(struct RpcResponse *resp)
     rpc_count_request_replied(m->msg.request.op, m->msg.request.object.type, resp->rescode);
 
     /* log outcome of request */
-    if (resp->rescode == Ok)
-        zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
-    else
-        zlog_err("Op '%s' FAILED for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+    if (log_dataplane_msg) {
+        if (resp->rescode == Ok)
+            zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+        else
+            zlog_err("Op '%s' FAILED for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+    }
 
     switch(resp->op) {
         case Connect:
@@ -308,7 +310,8 @@ void handle_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg);
 
-    zlog_debug("Handling %s", fmt_rpc_msg(fb, true, msg));
+    if (log_dataplane_msg)
+        zlog_debug("Handling %s", fmt_rpc_msg(fb, true, msg));
 
     switch(msg->type) {
         case Response:

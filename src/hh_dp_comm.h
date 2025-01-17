@@ -1,8 +1,11 @@
 #ifndef SRC_HH_DP_COMM_H_
 #define SRC_HH_DP_COMM_H_
 
+#include <stdbool.h>
 #include <dplane-rpc/dplane-rpc.h>
 #include "hh_dp_msg_cache.h"
+
+extern bool log_dataplane_msg;
 
 /* set dp unix sock local path */
 int set_dp_sock_local_path(const char *path);

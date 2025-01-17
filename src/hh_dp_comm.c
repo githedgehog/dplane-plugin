@@ -50,6 +50,7 @@ static bool __dplane_is_ready = false;
 
 /* global */
 struct fmt_buff *fb = NULL;
+bool log_dataplane_msg = true;
 
 /* tell if a unix path is valid */
 static bool is_valid_unix_path(const char *path)
@@ -214,7 +215,8 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     BUG(!msg, -1);
     BUG(!tx_buff, -1);
 
-    zlog_debug("Sending %s", fmt_rpc_msg(fb, true, msg));
+    if (log_dataplane_msg)
+        zlog_debug("Sending %s", fmt_rpc_msg(fb, true, msg));
 
     /* should not send messages until connect request succeeds */
     if (msg->type == Request && msg->request.op != Connect && !dplane_is_ready()) {
