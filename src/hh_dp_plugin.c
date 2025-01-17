@@ -35,10 +35,10 @@ static int process_plugin_opt(int opt, const char *opt_arg, const struct option 
         case 0:
             break;
         case 'l':
-            /* Set local unix path (Todo) */
+            r =  set_dp_sock_local_path(opt_arg);
             break;
         case 'r':
-            /* Set remote unix path (Todo) */
+            r = set_dp_sock_remote_path(opt_arg);
             break;
         default:
             /* If we get here, either there is a bug in the utils,

@@ -25,9 +25,18 @@ static void dp_connect(struct event *e);
 #define DPLANE_CONNECT_SEC 5 /* default connection-retry timer value */
 #define NO_SOCK -1 /* sock descriptor initializer */
 
+/* max length of unix sock */
+#define MAX_SUN_PATH sizeof(((struct sockaddr_un*)0)->sun_path)
+
+/* default paths */
+#define DFLT_LOC_DPSOCK_PATH "/var/run/frr/hhplugin.sock"
+#define DFLT_REM_DPSOCK_PATH "/var/run/frr/hh_dataplane.sock"
+_Static_assert ((sizeof(DFLT_LOC_DPSOCK_PATH) <= MAX_SUN_PATH), "Path exceeds unix max path length");
+_Static_assert ((sizeof(DFLT_REM_DPSOCK_PATH) <= MAX_SUN_PATH), "Path exceeds unix max path length");
+
 /* statics */
-static const char *plugin_sock_path = "/var/run/frr/hhplugin.sock";
-static const char *dp_sock_path = "/var/run/frr/hh_dataplane.sock";
+static char plugin_sock_path[MAX_SUN_PATH + 1] = DFLT_LOC_DPSOCK_PATH;
+static char dp_sock_path[MAX_SUN_PATH + 1] = DFLT_REM_DPSOCK_PATH;
 static struct event *ev_connect_timer = NULL;
 static struct event *ev_recv = NULL;
 static struct event *ev_send = NULL;
@@ -40,6 +49,43 @@ static bool __dplane_is_ready = false;
 
 /* global */
 struct fmt_buff *fb = NULL;
+
+/* tell if a unix path is valid */
+static bool is_valid_unix_path(const char *path)
+{
+    size_t path_len = strlen(path);
+    if (!path_len || path_len > MAX_SUN_PATH) {
+        zlog_err("Invalid unix socket path %s: too long %zu > %zu", path, path_len, MAX_SUN_PATH);
+        return false;
+    }
+    return true;
+}
+
+/* set dp unix sock local path */
+int set_dp_sock_local_path(const char *path)
+{
+    BUG(!path, -1);
+
+    if (!is_valid_unix_path(path))
+        return -1;
+
+    strncpy(plugin_sock_path, path, MAX_SUN_PATH);
+    zlog_debug("Configured dp local sock path to %s", plugin_sock_path);
+    return 0;
+}
+
+/* set dp unix sock remote path */
+int set_dp_sock_remote_path(const char *path)
+{
+    BUG(!path, -1);
+
+    if (!is_valid_unix_path(path))
+        return -1;
+
+    strncpy(dp_sock_path, path, MAX_SUN_PATH);
+    zlog_debug("Configured dp remote sock path to %s", dp_sock_path);
+    return 0;
+}
 
 /* mark state of dataplane: readiness happens when DP replies to Connect successfully */
 void dplane_set_ready(bool ready) {
@@ -90,13 +136,9 @@ static int dp_unix_sock_open(const char *bind_path)
     /* build bind address */
     struct sockaddr_un un_src = {0};
     size_t path_len = strlen(bind_path);
-    if (!path_len || path_len >= sizeof(un_src.sun_path)) {
-        zlog_err("Invalid unix socket path length of %zu", path_len);
-        goto fail;
-    } else {
-        un_src.sun_family = AF_UNIX;
-        strcpy(un_src.sun_path, bind_path);
-    }
+    BUG(!path_len || path_len >= sizeof(un_src.sun_path), -1);
+    un_src.sun_family = AF_UNIX;
+    strncpy(un_src.sun_path, bind_path, sizeof(un_src.sun_path));
 
     /* sanity: remove file system entry */
     if (unlink(un_src.sun_path) == 0)

@@ -4,6 +4,12 @@
 #include <dplane-rpc/dplane-rpc.h>
 #include "hh_dp_msg_cache.h"
 
+/* set dp unix sock local path */
+int set_dp_sock_local_path(const char *path);
+
+/* set dp unix sock remote path */
+int set_dp_sock_remote_path(const char *path);
+
 /* initialize RPC with dataplane */
 int init_dplane_rpc(void);
 
