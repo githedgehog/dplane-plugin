@@ -69,6 +69,7 @@ int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx)
 
     struct dp_msg *m = dp_request_new(op, ctx);
     ifaddress_as_object(&m->msg.request.object, &ifa);
+
     return send_rpc_msg(m);
 }
 
@@ -241,7 +242,7 @@ static void handle_rpc_connect_response(struct RpcResponse *resp)
 
         /* attempt to send messages that we cached because DP had not opened
          * socket or we had not received response to Connect request. */
-        send_pending_rpc_msgs(NULL);
+        send_pending_rpc_msgs();
 
     } else {
         zlog_err("Dataplane refused Connect request. Aborting....");

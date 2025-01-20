@@ -34,6 +34,6 @@ bool dplane_sock_is_connected(void);
 int send_rpc_msg(struct dp_msg *dp_msg);
 
 /* send rpc messages awaiting to be sent */
-void send_pending_rpc_msgs(struct event *ignored);
+void send_pending_rpc_msgs(void);
 
 #endif /* SRC_HH_DP_COMM_H_ */
