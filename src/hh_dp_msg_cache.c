@@ -81,6 +81,11 @@ struct dp_msg *dp_msg_pop_unsent(void) {
     return dp_msg_list_pop(&msg_cache.unsent);
 }
 
+/* length of unsent list */
+size_t dp_msg_unsent_count(void) {
+    return dp_msg_list_count(&msg_cache.unsent);
+}
+
 /* Cache a message (e.g. a Request) until we get the corresponding response */
 void dp_msg_cache_inflight(struct dp_msg *msg)
 {

@@ -39,6 +39,9 @@ void dp_msg_unsent_push_back(struct dp_msg *msg);
 
 struct dp_msg *dp_msg_pop_unsent(void);
 
+/* length of unsent list */
+size_t dp_msg_unsent_count(void);
+
 /* put message in list of sent messages */
 void dp_msg_cache_inflight(struct dp_msg *msg);
 struct dp_msg *dp_msg_pop_inflight(void);
