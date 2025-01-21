@@ -104,7 +104,7 @@ static void hh_vty_show_stats_rpc(struct vty *vty)
         for (enum RpcOp op = Connect; op < MaxRpcOp; op++) {
             /* there are some combinations that are not possible. Exclude them from output */
             if (op == Get ||
-               (ot == VerInfo && op != Connect) || (ot != VerInfo && op == Connect) ||
+               (ot == ConnectInfo && op != Connect) || (ot != ConnectInfo && op == Connect) ||
                (op == Update && ot != IpRoute ))
                 continue;
 

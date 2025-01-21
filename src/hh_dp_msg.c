@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 
@@ -38,11 +39,16 @@ static struct dp_msg *dp_request_new(RpcOp Op, struct zebra_dplane_ctx *ctx)
  * with a success. */
 int send_rpc_request_connect(void)
 {
-    struct ver_info info = {.major = VER_DP_MAJOR, .minor = VER_DP_MINOR, .patch = VER_DP_PATCH};
-
+    struct conn_info cinfo = {
+            .name = "FRR-HHGW-plugin",
+            .pid = (uint32_t)getpid(),
+            .verinfo = {
+                .major = VER_DP_MAJOR,
+                .minor = VER_DP_MINOR,
+                .patch = VER_DP_PATCH}
+    };
     struct dp_msg *m = dp_request_new(Connect, NULL);
-    verinfo_as_object(&m->msg.request.object, &info);
-
+    conninfo_as_object(&m->msg.request.object, &cinfo);
     return send_rpc_msg(m);
 }
 
