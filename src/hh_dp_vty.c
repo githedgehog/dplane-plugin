@@ -6,10 +6,7 @@
 #include "hh_dp_vty.h"
 #include "hh_dp_rpc_stats.h"
 #include "hh_dp_comm.h" /* log_dataplane_msg */
-
-#define HH_STR "Hedgehog-GW\n"
-#define HH_DP_RPC_STR "RPC stats\n"
-
+#include "hh_dp_vty_common.h"
 
 static void hh_vty_show_version(struct vty *vty) {
     vty_out(vty, "\n Hedgehog-GW plugin %s\n", VER_STRING);
@@ -20,23 +17,23 @@ static void hh_vty_show_version(struct vty *vty) {
 }
 
 DEFUN (hh_dp_show_plugin_version, hh_dp_show_plugin_version_cmd,
-       "show hedgehog plugin version",
-       SHOW_STR HH_STR "plugin\n" "version\n")
+       HH_CMD_SHOW_PLUGIN_VERSION,
+       SHOW_STR HH_STR HH_DP_PLUGIN "version\n")
 {
     hh_vty_show_version(vty);
     return CMD_SUCCESS;
 }
 
-DEFUN(hh_dp_show_rpc_stats, hh_dp_show_rpc_stats_cmd,
-      "show hedgehog rpc stats",
-      SHOW_STR HH_STR HH_DP_RPC_STR "show rpc stats\n")
+DEFUN (hh_dp_show_rpc_stats, hh_dp_show_rpc_stats_cmd,
+       HH_CMD_SHOW_RPC_STATS,
+       SHOW_STR HH_STR HH_DP_RPC_STR "show rpc stats\n")
 {
     hh_vty_show_stats(vty);
     return CMD_SUCCESS;
 }
 
 DEFUN (hh_dp_debug_rpc_msg, hh_dp_debug_rpc_msg_cmd,
-       "[no] debug hedgehog rpc",
+       HH_CMD_DEBUG_RPC,
        NO_STR DEBUG_STR HH_STR "RPC messages\n")
 {
     log_dataplane_msg = !strmatch(argv[0]->text, "no");

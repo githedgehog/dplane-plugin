@@ -60,3 +60,13 @@ target_link_libraries(hh_dplane frr dplane-rpc)
 set_target_properties(hh_dplane PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hh_dplane PROPERTIES PREFIX "zebra_")
 install(TARGETS hh_dplane DESTINATION /usr/local/lib/frr/modules)
+
+# vtysh extension lib
+add_library(vtysh_ext SHARED vtysh_hhdplane.c)
+set_target_properties(vtysh_ext PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(vtysh_ext PUBLIC /src  PUBLIC /src/lib PUBLIC /usr/local/include/frr)
+target_link_libraries(vtysh_ext frr)
+set_target_properties(vtysh_ext PROPERTIES PREFIX "")
+set_target_properties(vtysh_ext PROPERTIES OUTPUT_NAME "libvtysh_hedgehog")
+set_target_properties(vtysh_ext PROPERTIES SUFFIX ".so")
+install(TARGETS vtysh_ext DESTINATION /usr/local/lib)
