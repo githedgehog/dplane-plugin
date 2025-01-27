@@ -113,6 +113,7 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
 
     nhop->vrfid = nh->vrf_id;
     nhop->ifindex = nh->ifindex;
+    nhop->fwaction = Forward; /* unless overwritten below */
 
     /* next-hop address */
     switch(nh->type) {
@@ -129,6 +130,7 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
             memcpy(nhop->address.addr.ipv6, nh->gate.ipv6.__in6_u.__u6_addr8, 16);
             break;
         case NEXTHOP_TYPE_BLACKHOLE:
+            nhop->fwaction = Drop;
             break;
     }
     /* set encapsulation */
