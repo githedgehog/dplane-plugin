@@ -59,10 +59,6 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
     if (safi != SAFI_UNICAST && safi != SAFI_EVPN)
         return HH_IGNORED;
 
-    /* dataplane may not need local routes since we send interface addresses to it */
-    if (type == ZEBRA_ROUTE_LOCAL)
-        return HH_IGNORED;
-
     int r;
     switch(dplane_ctx_get_op(ctx)) {
         case DPLANE_OP_ROUTE_INSTALL:

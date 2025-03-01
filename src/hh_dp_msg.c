@@ -145,6 +145,7 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
 /* map FRR's route types to the RPC types */
 static RouteType encode_route_type(unsigned int zebra_route_type) {
     switch(zebra_route_type) {
+        case ZEBRA_ROUTE_LOCAL: return Local;
         case ZEBRA_ROUTE_CONNECT: return Connected;
         case ZEBRA_ROUTE_STATIC: return Static;
         case ZEBRA_ROUTE_OSPF: return Ospf;
