@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "config.h" /* FRR config: must include */
 #include "lib/zebra.h"
 #include "lib/libfrr.h"

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "config.h"
 #include <zebra.h> /* strmatch */
 #include "lib/command.h"

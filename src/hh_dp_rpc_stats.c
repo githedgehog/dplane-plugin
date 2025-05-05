@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "config.h" /* FRR config.h */
 #include <dplane-rpc/dplane-rpc.h> /* HH's rpc dataplane library */
 #include "hh_dp_internal.h"
