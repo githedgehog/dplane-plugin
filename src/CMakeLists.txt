@@ -32,6 +32,19 @@ execute_process(
 )
 endif()
 
+if(NOT OUT)
+  set(OUT "/usr/local")
+endif()
+
+if(NOT HH_FRR_SRC)
+  set(HH_FRR_SRC "/src")
+endif()
+
+if(NOT HH_FRR_INCLUDE)
+  set(HH_FRR_INCLUDE "/usr/local/include/frr")
+endif()
+
+
 # sources
 set(HH_DPLANE_SRC
     hh_dp_plugin.c
@@ -63,20 +76,20 @@ message("cflags " ${CMAKE_C_FLAGS})
 
 configure_file (${PROJECT_SOURCE_DIR}/src/hh_dp_config.h.in ${PROJECT_BINARY_DIR}/hh_dp_config.h ESCAPE_QUOTES @ONLY NEWLINE_STYLE UNIX)
 target_include_directories(hh_dplane PRIVATE "${PROJECT_BINARY_DIR}")
-target_include_directories(hh_dplane PUBLIC /src  PUBLIC /src/lib PUBLIC /usr/local/include/frr)
+target_include_directories(hh_dplane PUBLIC ${HH_FRR_SRC} PUBLIC ${HH_FRR_SRC}/lib PUBLIC ${HH_FRR_INCLUDE})
 target_include_directories(hh_dplane PUBLIC "${PROJECT_BINARY_DIR}")
 target_link_libraries(hh_dplane frr dplane-rpc)
 
 set_target_properties(hh_dplane PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hh_dplane PROPERTIES PREFIX "zebra_")
-install(TARGETS hh_dplane DESTINATION /usr/local/lib/frr/modules)
+install(TARGETS hh_dplane DESTINATION ${OUT}/lib/frr/modules)
 
 # vtysh extension lib
 add_library(vtysh_ext SHARED vtysh_hhdplane.c)
 set_target_properties(vtysh_ext PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(vtysh_ext PUBLIC /src  PUBLIC /src/lib PUBLIC /usr/local/include/frr)
+target_include_directories(vtysh_ext PUBLIC ${HH_FRR_SRC} PUBLIC ${HH_FRR_SRC}/lib PUBLIC ${HH_FRR_INCLUDE})
 target_link_libraries(vtysh_ext frr)
 set_target_properties(vtysh_ext PROPERTIES PREFIX "")
 set_target_properties(vtysh_ext PROPERTIES OUTPUT_NAME "libvtysh_hedgehog")
 set_target_properties(vtysh_ext PROPERTIES SUFFIX ".so")
-install(TARGETS vtysh_ext DESTINATION /usr/local/lib)
+install(TARGETS vtysh_ext DESTINATION ${OUT}/lib)
