@@ -70,6 +70,9 @@ else()
    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-declarations")
    set(DEBUG_BUILD false)
 endif()
+
+set(CMAKE_C_STANDARD "23")
+
 message("debug " ${DEBUG_BUILD})
 message("cflags " ${CMAKE_C_FLAGS})
 
