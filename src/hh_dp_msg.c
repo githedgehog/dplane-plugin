@@ -184,8 +184,10 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
     struct nexthop *nh;
     struct next_hop nhop;
     for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-        nhop_encode(&nhop, nh);
-        ip_route_add_nhop(&route, &nhop);
+        if NEXTHOP_IS_ACTIVE(nh->flags) {
+            nhop_encode(&nhop, nh);
+            ip_route_add_nhop(&route, &nhop);
+        }
     }
 
     /* build dp_msg with route */
