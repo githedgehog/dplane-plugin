@@ -110,6 +110,8 @@ static hh_dp_res_t hh_process_neigh(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_NEIGH_UPDATE:
         case DPLANE_OP_NEIGH_DELETE:
         case DPLANE_OP_NEIGH_DISCOVER:
+        case DPLANE_OP_VTEP_ADD:
+        case DPLANE_OP_VTEP_DELETE:
             return HH_IGNORED;
         default:
             BUG(true, HH_BUG);
@@ -199,8 +201,8 @@ static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_NEIGH_INSTALL:
         case DPLANE_OP_NEIGH_UPDATE:
         case DPLANE_OP_NEIGH_DELETE:
-            return hh_process_neigh(ctx);
-
+        /* Link layer address discovery */
+        case DPLANE_OP_NEIGH_DISCOVER:
         /* EVPN VTEP updates */
         case DPLANE_OP_VTEP_ADD:
         case DPLANE_OP_VTEP_DELETE:
@@ -211,10 +213,6 @@ static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_RULE_DELETE:
         case DPLANE_OP_RULE_UPDATE:
             return HH_IGNORED;
-
-        /* Link layer address discovery */
-        case DPLANE_OP_NEIGH_DISCOVER:
-            return hh_process_neigh(ctx);
 
         /* bridge port update */
         case DPLANE_OP_BR_PORT_UPDATE:
