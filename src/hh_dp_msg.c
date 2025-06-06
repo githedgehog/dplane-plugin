@@ -183,10 +183,24 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
     const struct nexthop_group *nhg = dplane_ctx_get_ng(ctx);
     struct nexthop *nh;
     struct next_hop nhop;
+
+    // check if any of the next-hops is recursive
+    bool has_recursive = false;
+    for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+        if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+            has_recursive = true;
+            break;
+        }
+    }
+
+    // process next-hops
     for (ALL_NEXTHOPS_PTR(nhg, nh)) {
         if NEXTHOP_IS_ACTIVE(nh->flags) {
-            nhop_encode(&nhop, nh);
-            ip_route_add_nhop(&route, &nhop);
+            // if we have recursive next-hops, only send those. Else, send them all.
+            if ((has_recursive && (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))) || !has_recursive) {
+                nhop_encode(&nhop, nh);
+                ip_route_add_nhop(&route, &nhop);
+            }
         }
     }
 
