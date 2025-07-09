@@ -282,8 +282,8 @@ static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
     BUG(!m);
 
     if (m->ctx) {
-        /* set the result */
-        enum zebra_dplane_result result = rescode == Ok ? ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
+        /* set the result - we treat ignored requests as successes for the time being */
+        enum zebra_dplane_result result = (rescode == Ok || rescode == Ignored) ? ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
         dplane_ctx_set_status(m->ctx, result);
 
         /* queue back to zebra */
@@ -306,10 +306,17 @@ static void handle_rpc_response(struct RpcResponse *resp)
 
     /* log outcome of request */
     if (log_dataplane_msg) {
-        if (resp->rescode == Ok)
-            zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
-        else
-            zlog_err("Op '%s' FAILED for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+        switch(resp->rescode) {
+            case Ok:
+                zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                break;
+            case Ignored:
+                zlog_debug("Op '%s' was ignored for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                break;
+            default:
+                zlog_err("Op '%s' FAILED(%s) for %s", str_rpc_op(m->msg.request.op), str_rescode(resp->rescode), fmt_rpcobject(fb, true, &m->msg.request.object));
+                break;
+        }
     }
 
     switch(resp->op) {
