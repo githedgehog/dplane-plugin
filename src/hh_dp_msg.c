@@ -321,9 +321,6 @@ static void handle_rpc_response(struct RpcResponse *resp)
         case Update:
             handle_rpc_ctx_response(m, resp->rescode);
             break;
-        case Get:
-            /* Not handled yet */
-            break;
         default:
             zlog_err("Received response to unknown operation %u!!", resp->op);
             break;

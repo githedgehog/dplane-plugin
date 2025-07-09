@@ -101,12 +101,9 @@ static void hh_vty_show_stats_rpc(struct vty *vty)
         vty_out(vty, "%14.14s%c", str_rescode(rc), rc == RpcResultCodeMax - 1 ? '\n': ' ');
 
     for (enum ObjType ot = None + 1; ot < MaxObjType; ot++) {
-        if (ot == GetFilter)
-            continue;
         for (enum RpcOp op = Connect; op < MaxRpcOp; op++) {
             /* there are some combinations that are not possible. Exclude them from output */
-            if (op == Get ||
-               (ot == ConnectInfo && op != Connect) || (ot != ConnectInfo && op == Connect) ||
+            if ((ot == ConnectInfo && op != Connect) || (ot != ConnectInfo && op == Connect) ||
                (op == Update && ot != IpRoute ))
                 continue;
 

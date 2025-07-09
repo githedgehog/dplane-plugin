@@ -52,6 +52,7 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
     afi_t afi = dplane_ctx_get_afi(ctx);
     safi_t safi = dplane_ctx_get_safi(ctx);
     int type = dplane_ctx_get_type(ctx);
+    (void)type;
 
     /* currently we only care about IPv4 and L2vpn */
     if (afi != AFI_IP && afi != AFI_L2VPN)
