@@ -62,6 +62,12 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
     if (safi != SAFI_UNICAST && safi != SAFI_EVPN)
         return HH_IGNORED;
 
+    /* do not install in kernel routes for non-default vrf */
+    VrfId vrfid = dplane_ctx_get_vrf(ctx);
+    if (vrfid != 0) {
+        dplane_ctx_set_skip_kernel(ctx);
+    }
+
     int r;
     switch(dplane_ctx_get_op(ctx)) {
         case DPLANE_OP_ROUTE_INSTALL:
@@ -285,12 +291,6 @@ void zd_hh_process_update(struct zebra_dplane_provider *prov, struct zebra_dplan
 
     if (IS_ZEBRA_DEBUG_DPLANE)
         zlog_debug("result: %s", zd_hh_ret_str(r));
-
-    /* Currently, we do not want to skip kernel. If we do,
-       this should not be called from here and be selectively done
-       for certain ctx's only */
-    if (0)
-        dplane_ctx_set_skip_kernel(ctx);
 
     /* if we did not queue a request to dataplane (e.g. maybe because we're not interested
      * in that piece of information, or because there was a failure) set the result and
