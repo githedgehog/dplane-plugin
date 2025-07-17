@@ -61,6 +61,14 @@ void rpc_count_request_replied(enum RpcOp op, enum ObjType otype, enum RpcResult
         atomic_fetch_add_explicit(&RPC_STATS.requests[otype][op].unk_err, 1, memory_order_relaxed);
 }
 
+/* account: RPC control msg rx / tx */
+void rpc_count_ctl_tx(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.control_tx, 1, memory_order_relaxed);
+}
+void rpc_count_ctl_rx(void) {
+    atomic_fetch_add_explicit(&RPC_STATS.control_rx, 1, memory_order_relaxed);
+}
+
 /* vty: show RPC stats */
 #define GET_REQ_COUNT(ot, op, name)  ({uint64_t __count = atomic_load_explicit(&RPC_STATS.requests[ot][op].name, memory_order_relaxed); __count;})
 #define GET_REQ_COUNT_RC(ot, op, rc) ({uint64_t __count = atomic_load_explicit(&RPC_STATS.requests[ot][op].rescode[rc], memory_order_relaxed); __count;})
@@ -121,15 +129,28 @@ static void hh_vty_show_stats_rpc(struct vty *vty)
     }
     vty_out(vty, "\n\n");
 }
+static void hh_vty_show_stats_rpc_control(struct vty *vty)
+{
+    BUG(!vty);
+
+    uint64_t countval64;
+
+    vty_out(vty, "  ───────────────────────────────────────── Control / Keepalives ─────────────────────────────────────────\n");
+    countval64 = atomic_load_explicit(&RPC_STATS.control_tx, memory_order_relaxed);
+    vty_out(vty, "   control tx: %llu\n", countval64);
+    countval64 = atomic_load_explicit(&RPC_STATS.control_rx, memory_order_relaxed);
+    vty_out(vty, "   control rx: %llu\n", countval64);
+}
 void hh_vty_show_stats(struct vty *vty)
 {
     BUG(!vty);
 
     // N.B. connected state and readiness are booleans but not atomic
     vty_out(vty, " Dataplane sock connected: %s\n", dplane_sock_is_connected() ? "yes" : "no");
-    vty_out(vty, " Dataplane contacted: %s\n", dplane_is_ready() ? "yes" : "no");
+    vty_out(vty, " Dataplane ready (configured): %s\n", dplane_is_ready() ? "yes" : "no");
 
     hh_vty_show_stats_io(vty);
     hh_vty_show_stats_serialization(vty);
+    hh_vty_show_stats_rpc_control(vty);
     hh_vty_show_stats_rpc(vty);
 }

@@ -211,6 +211,13 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
     return send_rpc_msg(m);
 }
 
+/* Send a control message (keepalive) */
+int send_rpc_control(void) {
+    struct dp_msg *m = dp_msg_new();
+    m->msg.type = Control;
+    return send_rpc_msg(m);
+}
+
 /* handle messages from dataplane */
 static inline bool got_expected_response(struct RpcResponse *resp, struct RpcRequest *req) {
     if (unlikely((resp->seqn != req->seqn) || (resp->op != req->op))) {
@@ -336,13 +343,17 @@ static void handle_rpc_response(struct RpcResponse *resp)
     /* recycle message */
     dp_msg_recycle(m);
 }
+static void handle_rpc_control(struct RpcControl *ctl) {
+    rpc_count_ctl_rx();
+}
+
 
 /* entry point for incoming messages */
 void handle_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg);
 
-    if (log_dataplane_msg)
+    if (log_dataplane_msg && msg->type != Control)
         zlog_debug("Handling %s", fmt_rpc_msg(fb, true, msg));
 
     switch(msg->type) {
@@ -350,6 +361,8 @@ void handle_rpc_msg(struct RpcMsg *msg)
             handle_rpc_response(&msg->response);
             break;
         case Control:
+            handle_rpc_control(&msg->control);
+            break;
         case Request:
         case Notification:
             /* These messages are not handled yet as the behavior is not specified */

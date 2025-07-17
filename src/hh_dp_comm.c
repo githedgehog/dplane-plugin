@@ -24,9 +24,11 @@
 
 /* fw decl */
 static void dp_connect(struct event *e);
+static void dp_send_keepalive(struct event *e);
 static void wakeon_dp_write_avail(void);
 
 #define DPLANE_CONNECT_SEC 5 /* default connection-retry timer value */
+#define DPLANE_KEEPALIVE_SEC 5 /* keepalive timer */
 #define NO_SOCK -1 /* sock descriptor initializer */
 
 /* max length of unix sock */
@@ -44,6 +46,7 @@ static char dp_sock_path[MAX_SUN_PATH + 1] = DFLT_REM_DPSOCK_PATH;
 static struct event *ev_connect_timer = NULL;
 static struct event *ev_recv = NULL;
 static struct event *ev_send = NULL;
+static struct event *ev_keepalive = NULL;
 static int dp_sock = NO_SOCK;
 static bool dp_sock_connected = false;
 static buff_t *tx_buff;
@@ -231,7 +234,7 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
     if (!can_send_rpc_request(msg))
         return -1;
 
-    if (log_dataplane_msg)
+    if (log_dataplane_msg && msg->type != Control)
         zlog_debug("Sending %s", fmt_rpc_msg(fb, true, msg));
 
     /* encode the message into the tx buffer */
@@ -303,6 +306,9 @@ void send_pending_rpc_msgs(void)
                 rpc_count_request_sent(m->msg.request.op, m->msg.request.object.type);
                 dp_msg_cache_inflight(m);
             } else {
+                if (m->msg.type == Control)
+                    rpc_count_ctl_tx();
+
                 dp_msg_recycle(m);
             }
         } else {
@@ -466,6 +472,16 @@ static void dp_connect(struct event *e)
     }
 }
 
+/* send keepalives if we're connected */
+static void dp_send_keepalive(struct event *e) {
+    struct event_loop *ev_loop = dplane_get_thread_master();
+
+    if (dplane_sock_is_connected() && dplane_is_ready()) {
+        send_rpc_control();
+    }
+    event_add_timer(ev_loop, dp_send_keepalive, NULL, DPLANE_KEEPALIVE_SEC, &ev_keepalive);
+}
+
 /* Finalize RPC to dataplane */
 void fini_dplane_rpc(void)
 {
@@ -476,6 +492,7 @@ void fini_dplane_rpc(void)
     event_cancel(&ev_recv);
     event_cancel(&ev_send);
     event_cancel(&ev_connect_timer);
+    event_cancel(&ev_keepalive);
 
     /* destroy rx / tx buffers */
     if (tx_buff)
@@ -542,6 +559,9 @@ int init_dplane_rpc(void)
     /* attempt connection to DP. This step in the initialization can fail
      * if the dataplane has not yet opened the unix socket for communication. */
     dp_connect(NULL);
+
+    /* start keepalive probing */
+    dp_send_keepalive(NULL);
 
     zlog_info("RPC initialization succeeded");
 

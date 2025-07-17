@@ -43,6 +43,8 @@ struct rpc_stats {
     struct rpc_req_stat_cell requests[MaxObjType][MaxRpcOp];
 
     /* stats for other RPC message types ... */
+    _Atomic uint64_t control_tx;
+    _Atomic uint64_t control_rx;
 };
 
 /* Increment RPC stats counters */
@@ -60,6 +62,10 @@ void rpc_count_tx_eagain(void);
 void rpc_count_rx(void);
 void rpc_count_rx_failure(void);
 void rpc_count_rx_eagain(void);
+
+/* Control / keepalives */
+void rpc_count_ctl_tx(void);
+void rpc_count_ctl_rx(void);
 
 /* vty: show RPC stats */
 void hh_vty_show_stats(struct vty *vty);
