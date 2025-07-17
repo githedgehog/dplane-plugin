@@ -117,6 +117,7 @@ static void dp_unix_sock_close(void)
         close(dp_sock);
         dp_sock = NO_SOCK;
         dp_sock_connected = false;
+        dplane_set_ready(false);
     }
     if (unlink(plugin_sock_path) == 0)
         zlog_debug("Deleted unix path at '%s'", plugin_sock_path);
@@ -267,6 +268,7 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
             case ECONNRESET:
                 zlog_err("Connection error sending msg to dataplane: %s(%d)", strerror(_err), _err);
                 dp_sock_connected = false;
+                dplane_set_ready(false);
                 if (!ev_connect_timer)
                     dp_connect(NULL);
                 return -1;
@@ -457,15 +459,7 @@ static void dp_connect(struct event *e)
     } else {
         ev_connect_timer = NULL;
         dp_sock_connected = true;
-
-        /* send Connect RPC request with versioning info, only if we never got a reply back */
-        if (!dplane_is_ready())
-            send_rpc_request_connect();
-        else {
-            /* If this is a reconnect (we got disconnected), there may be pending messages.
-             * Attempt to send them now that we know that sock is connected and got DP clearance. */
-            send_pending_rpc_msgs();
-        }
+        send_rpc_request_connect(); /* always send connect again */
 
         /* sched recv */
         event_add_read(ev_loop, dp_rpc_recv, NULL, dp_sock, &ev_recv);
