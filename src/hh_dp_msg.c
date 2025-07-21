@@ -327,13 +327,13 @@ static void handle_rpc_response(struct RpcResponse *resp)
     if (log_dataplane_msg) {
         switch(resp->rescode) {
             case Ok:
-                zlog_debug("Op '%s' succeeded for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_debug("#%lu Op '%s' succeeded for %s", resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
             case Ignored:
-                zlog_debug("Op '%s' was ignored for %s", str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_debug("#%lu Op '%s' was ignored for %s", resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
             default:
-                zlog_err("Op '%s' FAILED(%s) for %s", str_rpc_op(m->msg.request.op), str_rescode(resp->rescode), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_err("#%lu Op '%s' FAILED(%s) for %s", resp->seqn, str_rpc_op(m->msg.request.op), str_rescode(resp->rescode), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
         }
     }
@@ -365,7 +365,7 @@ void handle_rpc_msg(struct RpcMsg *msg)
 {
     BUG(!msg);
 
-    if (log_dataplane_msg && msg->type != Control)
+    if (log_dataplane_msg && msg->type != Control && msg->type != Response)
         zlog_debug("Handling %s", fmt_rpc_msg(fb, true, msg));
 
     switch(msg->type) {
