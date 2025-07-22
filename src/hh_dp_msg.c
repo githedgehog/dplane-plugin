@@ -356,6 +356,10 @@ static void handle_rpc_response(struct RpcResponse *resp)
     dp_msg_recycle(m);
 }
 static void handle_rpc_control(struct RpcControl *ctl) {
+    if (ctl->refresh) {
+        zlog_warn("Got refresh request from dataplane. Requesting refresh...");
+        zebra_dplane_provider_refresh(dplane_provider_get_id(prov_p), DPLANE_REFRESH_ALL);
+    }
     rpc_count_ctl_rx();
 }
 
