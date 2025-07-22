@@ -372,6 +372,9 @@ void handle_rpc_msg(struct RpcMsg *msg)
             zlog_err("Received msg of unknown type via dataplane socket");
             break;
     }
+
+    /* free up additional resources */
+    msg_dispose(msg);
 }
 
 
