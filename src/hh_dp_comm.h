@@ -24,6 +24,12 @@ void fini_dplane_rpc(void);
 /* set the value of dataplane status */
 void dplane_set_ready(bool ready);
 
+/* set the synt */
+void dplane_set_synt(uint64_t value);
+
+/* get the synt */
+uint64_t dplane_get_synt(void);
+
 /* get the value of dataplane status */
 bool dplane_is_ready(void);
 

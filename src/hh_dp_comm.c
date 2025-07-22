@@ -53,6 +53,7 @@ static buff_t *tx_buff;
 static buff_t *rx_buff;
 static struct fmt_buff FB = {0};
 static bool __dplane_is_ready = false;
+static uint64_t synt = 0;
 
 /* global */
 struct fmt_buff *fb = NULL;
@@ -98,6 +99,16 @@ int set_dp_sock_remote_path(const char *path)
 /* mark state of dataplane: readiness happens when DP replies to Connect successfully */
 void dplane_set_ready(bool ready) {
     __dplane_is_ready = ready;
+}
+
+/* set the synt */
+void dplane_set_synt(uint64_t value) {
+    synt = value;
+}
+
+/* get the synt */
+uint64_t dplane_get_synt(void) {
+    return synt;
 }
 
 /* Tell if communication with dataplane has been established */

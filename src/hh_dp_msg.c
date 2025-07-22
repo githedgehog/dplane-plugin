@@ -47,7 +47,8 @@ int send_rpc_request_connect(void)
             .verinfo = {
                 .major = VER_DP_MAJOR,
                 .minor = VER_DP_MINOR,
-                .patch = VER_DP_PATCH}
+                .patch = VER_DP_PATCH},
+            .synt = dplane_get_synt()
     };
     struct dp_msg *m = dp_request_new(Connect, NULL);
     conninfo_as_object(&m->msg.request.object, &cinfo);
@@ -267,9 +268,20 @@ static void handle_rpc_connect_response(struct RpcResponse *resp)
 {
     BUG(!resp);
 
+    if (resp->objects == NULL) {
+        zlog_warn("Warning, got Connect response without connection info!");
+    } else {
+        zlog_debug("Got connect response: %s", fmt_rpcobject(fb, true, resp->objects));
+    }
+
     if (resp->rescode == Ok) {
         if (!dplane_is_ready())
             zlog_info("Dataplane positively acked Connect.");
+
+        /* recall synt */
+        if (resp->objects) {
+            dplane_set_synt(resp->objects->conn_info.synt);
+        }
 
         /* allow further communications */
         dplane_set_ready(true);
