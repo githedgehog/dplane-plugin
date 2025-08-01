@@ -313,8 +313,10 @@ static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
         m->ctx = NULL; /* imposed to allow recycle */
     }
 }
-static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m) {
+static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m, bool purged) {
     BUG(!resp || !m);
+
+    char *pfx = purged ? "(purged)" : " ";
 
     /* account */
     rpc_count_request_replied(m->msg.request.op, m->msg.request.object.type, resp->rescode);
@@ -323,13 +325,13 @@ static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m) {
     if (log_dataplane_msg) {
         switch(resp->rescode) {
             case Ok:
-                zlog_debug("#%lu Op '%s' succeeded for %s", resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_debug("%s #%lu Op '%s' succeeded for %s", pfx, resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
             case Ignored:
-                zlog_debug("#%lu Op '%s' was ignored for %s", resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_debug("%s #%lu Op '%s' was ignored for %s", pfx, resp->seqn, str_rpc_op(m->msg.request.op), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
             default:
-                zlog_err("#%lu Op '%s' FAILED(%s) for %s", resp->seqn, str_rpc_op(m->msg.request.op), str_rescode(resp->rescode), fmt_rpcobject(fb, true, &m->msg.request.object));
+                zlog_err("%s #%lu Op '%s' FAILED(%s) for %s", pfx, resp->seqn, str_rpc_op(m->msg.request.op), str_rescode(resp->rescode), fmt_rpcobject(fb, true, &m->msg.request.object));
                 break;
         }
     }
@@ -370,9 +372,9 @@ static void handle_rpc_response(struct RpcResponse *resp)
                 fake.seqn = m->msg.request.seqn;
                 fake.op = m->msg.request.op;
                 fake.rescode = Ok;
-                do_handle_rpc_response(&fake, m);
+                do_handle_rpc_response(&fake, m, true);
             } else {
-                do_handle_rpc_response(resp, m);
+                do_handle_rpc_response(resp, m, true);
             }
             dp_msg_recycle(m);
         }
@@ -386,7 +388,7 @@ static void handle_rpc_response(struct RpcResponse *resp)
         return;
 
     /* handle the response */
-    do_handle_rpc_response(resp, m);
+    do_handle_rpc_response(resp, m, false);
 
     /* recycle message */
     dp_msg_recycle(m);
