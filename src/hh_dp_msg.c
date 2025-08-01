@@ -213,9 +213,10 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
 }
 
 /* Send a control message (keepalive) */
-int send_rpc_control(void) {
+int send_rpc_control(uint8_t refresh) {
     struct dp_msg *m = dp_msg_new();
     m->msg.type = Control;
+    m->msg.control.refresh = refresh;
     return send_rpc_msg(m);
 }
 
@@ -359,6 +360,7 @@ static void handle_rpc_control(struct RpcControl *ctl) {
     if (ctl->refresh) {
         zlog_warn("Got refresh request from dataplane. Requesting refresh...");
         zebra_dplane_provider_refresh(dplane_provider_get_id(prov_p), DPLANE_REFRESH_ALL);
+        send_rpc_control(1);
     }
     rpc_count_ctl_rx();
 }

@@ -11,7 +11,7 @@ int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx);
 int send_rpc_request_rmac(RpcOp op, struct zebra_dplane_ctx *ctx);
 int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx);
 
-int send_rpc_control(void);
+int send_rpc_control(uint8_t refresh);
 
 /* Entry point for RPC msg processing */
 void handle_rpc_msg(struct RpcMsg *msg);

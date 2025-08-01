@@ -488,7 +488,7 @@ static void dp_send_keepalive(struct event *e) {
     struct event_loop *ev_loop = dplane_get_thread_master();
 
     if (dplane_sock_is_connected() && dplane_is_ready()) {
-        send_rpc_control();
+        send_rpc_control(0);
     }
     event_add_timer(ev_loop, dp_send_keepalive, NULL, DPLANE_KEEPALIVE_SEC, &ev_keepalive);
 }
