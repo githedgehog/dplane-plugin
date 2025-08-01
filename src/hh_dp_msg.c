@@ -226,7 +226,8 @@ static inline bool got_expected_response(struct RpcResponse *resp, struct RpcReq
         /* We got a response that does not match the one we expected. Since Unix socks
          * are reliable and assuming that the "connection" was not dropped, this can only
          * happen due to: 1) a bug in this code 2) the peer (dataplane) not sending some
-         * response, reordering responses or badly sequencing them. */
+         * response, reordering responses or badly sequencing them 3) dataplane having restarted
+         * and having send a connect response. However, we solve 3) before we get here */
         zlog_err("Warning! recovered request (op: %s, seqn: %lu) does not match received response (op: %s, seqn: %lu) !!",
                 str_rpc_op(req->op), req->seqn, str_rpc_op(resp->op), resp->seqn);
         return false;
@@ -312,14 +313,8 @@ static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
         m->ctx = NULL; /* imposed to allow recycle */
     }
 }
-static void handle_rpc_response(struct RpcResponse *resp)
-{
-    BUG(!resp);
-
-    /* lookup the request that we cached until a response was received */
-    struct dp_msg *m = recover_request(resp);
-    if (!m)
-        return;
+static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m) {
+    BUG(!resp || !m);
 
     /* account */
     rpc_count_request_replied(m->msg.request.op, m->msg.request.object.type, resp->rescode);
@@ -339,6 +334,7 @@ static void handle_rpc_response(struct RpcResponse *resp)
         }
     }
 
+    /* handle response */
     switch(resp->op) {
         case Connect:
             handle_rpc_connect_response(resp);
@@ -352,6 +348,45 @@ static void handle_rpc_response(struct RpcResponse *resp)
             zlog_err("Received response to unknown operation %u!!", resp->op);
             break;
     }
+}
+static void handle_rpc_response(struct RpcResponse *resp)
+{
+    BUG(!resp);
+
+    /* Check if what we get is a response to a Connect */
+    if (resp->op == Connect && resp->objects != NULL && dplane_get_synt() != 0 && resp->objects->conn_info.synt != dplane_get_synt()) {
+        zlog_warn("Dataplane restarted! Purging in-flight queue...");
+
+        /* Alright, we have strong evidence that dataplane restarted: we were connected before and it reports a distinct
+         * sync token. This means chances are that we are expecting responses to requests sent to the previous incarnation
+         * that we will never receive. Since dataplane will request a refresh of the state, drain the in-flight
+         * queue pretending that all of the operations succeeded. On refresh, if they fail, the right state will
+         * be sent back to frr. The only response we don't fake is the one for the Connect request.
+         */
+        struct dp_msg *m;
+        while ((m = dp_msg_pop_inflight()) != 0) {
+            if (m->msg.request.op != Connect) {
+                struct RpcResponse fake = {0};
+                fake.seqn = m->msg.request.seqn;
+                fake.op = m->msg.request.op;
+                fake.rescode = Ok;
+                do_handle_rpc_response(&fake, m);
+            } else {
+                do_handle_rpc_response(resp, m);
+            }
+            dp_msg_recycle(m);
+        }
+        zlog_warn("Post dataplane restart purge comleted");
+        return;
+    }
+
+    /* lookup the request that we cached until a response was received */
+    struct dp_msg *m = recover_request(resp);
+    if (!m)
+        return;
+
+    /* handle the response */
+    do_handle_rpc_response(resp, m);
 
     /* recycle message */
     dp_msg_recycle(m);
