@@ -266,7 +266,7 @@ done:
         dp_msg_recycle(m);
     return NULL;
 }
-static void handle_rpc_connect_response(struct RpcResponse *resp)
+static void handle_rpc_connect_response(struct RpcResponse *resp, bool purged)
 {
     BUG(!resp);
 
@@ -281,16 +281,18 @@ static void handle_rpc_connect_response(struct RpcResponse *resp)
             zlog_info("Dataplane positively acked Connect.");
 
         /* recall synt */
-        if (resp->objects) {
+        if (resp->objects)
             dplane_set_synt(resp->objects->conn_info.synt);
-        }
 
         /* allow further communications */
         dplane_set_ready(true);
 
         /* attempt to send messages that we cached because DP had not opened
-         * socket or we had not received response to Connect request. */
-        send_pending_rpc_msgs();
+         * socket or we had not received response to Connect request, but only if
+         * we're not purging. Otherwise, this would cause messages to be sent
+         * while the purge is ongoing and we'd answer on behalf of dataplane */
+        if (!purged)
+            send_pending_rpc_msgs();
 
     } else {
         zlog_err("Dataplane refused Connect request. Aborting....");
@@ -339,7 +341,7 @@ static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m, b
     /* handle response */
     switch(resp->op) {
         case Connect:
-            handle_rpc_connect_response(resp);
+            handle_rpc_connect_response(resp, purged);
             break;
         case Add:
         case Del:
@@ -378,7 +380,7 @@ static void handle_rpc_response(struct RpcResponse *resp)
             }
             dp_msg_recycle(m);
         }
-        zlog_warn("Post dataplane restart purge comleted");
+        zlog_debug("Post dataplane restart purge completed");
         return;
     }
 

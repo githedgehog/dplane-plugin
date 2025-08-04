@@ -226,7 +226,7 @@ static inline bool can_send_rpc_request(struct RpcMsg *msg)
         return true;
     } else {
         if (log_dataplane_msg)
-            zlog_debug("Not sending request %s : dataplane availability has not been confirmed",
+            zlog_debug("Not sending %s: dataplane availability has not been confirmed",
                     fmt_rpc_msg(fb, true, msg));
         return false;
     }
