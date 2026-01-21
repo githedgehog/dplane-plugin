@@ -271,6 +271,8 @@ static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
         case DPLANE_OP_TC_FILTER_ADD:
         case DPLANE_OP_TC_FILTER_DELETE:
         case DPLANE_OP_TC_FILTER_UPDATE:
+        case DPLANE_OP_VLAN_INSTALL:
+        case DPLANE_OP_PROVIDER_REFRESH:
             return HH_IGNORED;
 
         /* Startup Control */
