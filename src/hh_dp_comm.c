@@ -58,6 +58,7 @@ static uint64_t synt = 0;
 /* global */
 struct fmt_buff *fb = NULL;
 bool log_dataplane_msg = true;
+bool finalizing = false;
 
 /* tell if a unix path is valid */
 static bool is_valid_unix_path(const char *path)
@@ -365,6 +366,7 @@ static void wakeon_dp_write_avail(void)
 /* Main function to send an RPC message. The dp_msg is not sent straight but queued in the
  * unsent queue (to preserve ordering) and any prior pending messages are sent first, by
  * calling send_pending_rpc_msgs(). Connect requests overtake any pending messsages.
+ * This function takes ownership of dp_msg and is responsible for recycling it or queueing it.
  */
 int send_rpc_msg(struct dp_msg *dp_msg)
 {
@@ -499,17 +501,15 @@ void fini_dplane_rpc(void)
     /* close Unix sock */
     dp_unix_sock_close();
 
-    /* politeness */
-    event_cancel(&ev_recv);
-    event_cancel(&ev_send);
-    event_cancel(&ev_connect_timer);
-    event_cancel(&ev_keepalive);
-
     /* destroy rx / tx buffers */
-    if (tx_buff)
+    if (tx_buff) {
         buff_free(tx_buff);
-    if (rx_buff)
+        tx_buff = NULL;
+    }
+    if (rx_buff) {
         buff_free(rx_buff);
+        rx_buff = NULL;
+    }
 
     /* finalize message cache */
     fini_dp_msg_cache();
@@ -519,7 +519,6 @@ void fini_dplane_rpc(void)
         fini_fmt_buff(fb);
         fb = NULL;
     }
-
 }
 
 /* allocate Tx/Rx buffers for RPC encoding/decoding */

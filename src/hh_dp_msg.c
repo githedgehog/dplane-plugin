@@ -299,6 +299,18 @@ static void handle_rpc_connect_response(struct RpcResponse *resp, bool purged)
         abort();
     }
 }
+
+void dp_msg_hand_off(struct dp_msg *dp_msg, enum zebra_dplane_result result) {
+
+    /* set result */
+    dplane_ctx_set_status(dp_msg->ctx, result);
+
+    /* queue back to zebra */
+    dplane_provider_enqueue_out_ctx(prov_p, dp_msg->ctx);
+    dplane_provider_work_ready();
+    dp_msg->ctx = NULL; /* imposed to allow recycle */
+}
+
 static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
 {
     BUG(!prov_p);
@@ -307,12 +319,7 @@ static void handle_rpc_ctx_response(struct dp_msg *m, RpcResultCode rescode)
     if (m->ctx) {
         /* set the result - we treat ignored requests as successes for the time being */
         enum zebra_dplane_result result = (rescode == Ok || rescode == Ignored) ? ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
-        dplane_ctx_set_status(m->ctx, result);
-
-        /* queue back to zebra */
-        dplane_provider_enqueue_out_ctx(prov_p, m->ctx);
-        dplane_provider_work_ready();
-        m->ctx = NULL; /* imposed to allow recycle */
+        dp_msg_hand_off(m, result);
     }
 }
 static void do_handle_rpc_response(struct RpcResponse *resp, struct dp_msg *m, bool purged) {

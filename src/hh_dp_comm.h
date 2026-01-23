@@ -8,6 +8,7 @@
 #include "hh_dp_msg_cache.h"
 
 extern bool log_dataplane_msg;
+extern bool finalizing;
 
 /* set dp unix sock local path */
 int set_dp_sock_local_path(const char *path);

@@ -4,6 +4,7 @@
 #include "lib/libfrr.h"
 #include "hh_dp_internal.h"
 #include "hh_dp_msg_cache.h"
+#include "zebra/zebra_dplane.h" /* dplane_ctx_reset() */
 
 DEFINE_MTYPE(ZEBRA, HH_DP_MSG, "HH Dataplane msg");
 
@@ -18,11 +19,23 @@ struct dp_msg_cache {
 static void dp_msg_del(struct dp_msg *msg)
 {
     BUG(!msg);
+    if (msg->ctx) {
+	zlog_warn("Deleting dp_msg referring to a ctx...");
+        /* dplane_ctx_free is private, hence we cannot free the context. This is only
+        * called on shutdown, so all good */
 #if 0
-    /* dplane_ctx_free is private, hence we cannot free the context */
-    if (msg->ctx)
         dplane_ctx_free(&msg->ctx);
+#else
+        /* Workaround that avoids needing to patch frr:
+         * call dplane_ctx_reset() and free ourselves.
+         * XFREE wraps free(). The danger here is that the memory tracking will
+         * not be aware of this free. But that's fine since we do that on termination.
+         */
+        dplane_ctx_reset(msg->ctx);
+        free(msg->ctx);
+        msg->ctx = NULL;
 #endif
+    }
     XFREE(MTYPE_HH_DP_MSG, msg);
 }
 
@@ -34,7 +47,6 @@ static void empty_dp_msg_list(struct dp_msg_list_head *list, const char *name)
     zlog_debug("Emptying cache list '%s' (%zu messages)", name, dp_msg_list_count(list));
     while((msg = dp_msg_list_pop(list)) != NULL)
         dp_msg_del(msg);
-    dp_msg_list_fini(list);
 }
 
 /* allocate a dp_msg */
@@ -51,6 +63,13 @@ struct dp_msg *dp_msg_new(void)
     if (m)
         memset(m, 0, sizeof(struct dp_msg));
     return m;
+}
+
+void log_dp_msg_lists(void) {
+    zlog_debug("pool: %zu unsent: %zu in-flight: %zu",
+        dp_msg_pool_count(),
+        dp_msg_unsent_count(),
+        dp_msg_in_flight_count());
 }
 
 /* recycle a dp_msg for later reuse */
@@ -88,10 +107,21 @@ size_t dp_msg_unsent_count(void) {
     return dp_msg_list_count(&msg_cache.unsent);
 }
 
+/* length of pool list */
+size_t dp_msg_pool_count(void) {
+    return dp_msg_list_count(&msg_cache.pool);
+}
+
+/* length of inflight list */
+size_t dp_msg_in_flight_count(void) {
+    return dp_msg_list_count(&msg_cache.in_flight);
+}
+
 /* Cache a message (e.g. a Request) until we get the corresponding response */
 void dp_msg_cache_inflight(struct dp_msg *msg)
 {
     BUG(!msg);
+    assert(msg->msg.type == Request);
     dp_msg_list_add_tail(&msg_cache.in_flight, msg);
 }
 
@@ -118,7 +148,7 @@ int init_dp_msg_cache(void)
         if (msg)
             dp_msg_list_add_tail(&msg_cache.pool, msg);
     }
-    zlog_debug("Initialized cache with pool of %zu messages", dp_msg_list_count(&msg_cache.pool));
+    zlog_debug("Initialized cache with pool of %zu messages", dp_msg_pool_count());
     return 0;
 }
 

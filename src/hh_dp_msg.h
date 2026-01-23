@@ -16,4 +16,6 @@ int send_rpc_control(uint8_t refresh);
 /* Entry point for RPC msg processing */
 void handle_rpc_msg(struct RpcMsg *msg);
 
+void dp_msg_hand_off(struct dp_msg *dp_msg, enum zebra_dplane_result result);
+
 #endif /* SRC_HH_DP_MSG_H_ */
