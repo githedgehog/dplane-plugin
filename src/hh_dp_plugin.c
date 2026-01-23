@@ -78,9 +78,12 @@ static int zd_hh_start(struct zebra_dplane_provider *prov)
  */
 static int zd_hh_fini(struct zebra_dplane_provider *prov, bool early)
 {
-    zlog_info("%s: Finalizing...", dplane_provider_get_name(prov));
-
-    fini_dplane_rpc();
+    if (early) {
+        zlog_info("%s: Finalizing...", dplane_provider_get_name(prov));
+        finalizing = true;
+    } else {
+        fini_dplane_rpc();
+    }
     return 0;
 }
 
@@ -104,8 +107,17 @@ static int zd_hh_process(struct zebra_dplane_provider *prov)
         if (!ctx)
             break;
 
-        zd_hh_process_update(prov, ctx);
+        if (!finalizing) {
+            zd_hh_process_update(prov, ctx);
+        } else {
+            // tell zebra deletions failed
+            dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+            dplane_provider_enqueue_out_ctx(prov, ctx);
+        }
     }
+
+    if (finalizing)
+        dplane_provider_work_ready();
     return 0;
 }
 
