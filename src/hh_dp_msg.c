@@ -10,9 +10,7 @@
 
 #include "zebra/zebra_dplane.h"
 #include "lib/libfrr.h"
-#include "lib/assert/assert.h"
 #include "zebra/debug.h"
-
 #include "hh_dp_internal.h"
 #include "hh_dp_comm.h" /* send_rpc_msg() && dplane_is_ready() */
 #include "hh_dp_process.h" /* struct zebra_dplane_provider */

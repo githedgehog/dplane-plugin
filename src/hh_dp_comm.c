@@ -157,7 +157,11 @@ static int dp_unix_sock_open(const char *bind_path)
     /* build bind address */
     struct sockaddr_un un_src = {0};
     size_t path_len = strlen(bind_path);
-    BUG(!path_len || path_len >= sizeof(un_src.sun_path), -1);
+    if (!path_len || path_len >= sizeof(un_src.sun_path)) {
+        zlog_err("Invalid path len %zu", path_len);
+        goto fail;
+    }
+
     un_src.sun_family = AF_UNIX;
     strncpy(un_src.sun_path, bind_path, sizeof(un_src.sun_path));
 
@@ -557,11 +561,11 @@ int init_dplane_rpc(void)
     /* open unix socket and bind it */
     dp_sock = dp_unix_sock_open(plugin_sock_path);
     if (dp_sock == NO_SOCK)
-        return -1;
+        goto fail;
 
     /* allocate Tx/Rx buffers for RPC encoding/decoding */
     if (init_rpc_buffers() != 0)
-        return -1;
+        goto fail;
 
     /* initialize msg cache */
     init_dp_msg_cache();
@@ -577,4 +581,10 @@ int init_dplane_rpc(void)
 
     /* success */
     return 0;
+
+fail:
+    dp_unix_sock_close();
+    fini_fmt_buff(fb);
+    fb = NULL;
+    return -1;
 }

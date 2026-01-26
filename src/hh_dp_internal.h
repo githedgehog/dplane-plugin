@@ -3,7 +3,6 @@
 #ifndef SRC_HH_DP_INTERNAL_H_
 #define SRC_HH_DP_INTERNAL_H_
 
-#include "lib/assert/assert.h"
 #include "lib/zlog.h"
 #include "hh_dp_config.h"
 
