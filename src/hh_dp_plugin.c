@@ -3,7 +3,6 @@
 #include "config.h" /* FRR config: must include */
 #include "lib/zebra.h"
 #include "lib/libfrr.h"
-#include "lib/assert/assert.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/debug.h"
 
