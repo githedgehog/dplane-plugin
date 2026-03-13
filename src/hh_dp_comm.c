@@ -192,13 +192,21 @@ fail:
     return NO_SOCK;
 }
 
+static void dp_unix_sock_reopen(void)
+{
+    dp_unix_sock_close();
+    dp_sock = dp_unix_sock_open(plugin_sock_path);
+    if (dp_sock == NO_SOCK) {
+        zlog_err("Fatal: could not create socket to dataplane");
+    }
+}
+
 /*
  * Connect unix socket to the specified path
  */
 static int dp_unix_connect(const char *conn_path)
 {
     BUG(!conn_path, -1);
-    BUG(dp_sock == NO_SOCK, -1);
 
     /* set path to connect to */
     struct sockaddr_un dst = {0};
@@ -217,6 +225,7 @@ static int dp_unix_connect(const char *conn_path)
         if (errno == EISCONN)
             return 0;
         zlog_err("Failed to connect to dataplane: %s", strerror(errno));
+        dp_unix_sock_reopen();
         return -1;
     }
     zlog_info("Successfully connected unix sock to '%s'", conn_path);
@@ -474,6 +483,10 @@ static void dp_rpc_recv(struct event *ev)
 static void dp_connect(struct event *e)
 {
     struct event_loop *ev_loop = dplane_get_thread_master();
+    if (dp_sock == NO_SOCK) {
+        zlog_err("Will not attempt to connect to dataplane: have no socket");
+        return;
+    }
 
     zlog_debug("Attempting to connect to dataplane at '%s'....", dp_sock_path);
     int r = dp_unix_connect(dp_sock_path);
