@@ -71,7 +71,7 @@ int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx)
         ifa.address.addr.ipv4 = ifaddr->u.prefix4.s_addr;
     } else {
         ifa.address.ipver = IPV6;
-        memcpy(ifa.address.addr.ipv6, ifaddr->u.prefix6.__in6_u.__u6_addr8, 16);
+        memcpy(ifa.address.addr.ipv6, ifaddr->u.prefix6.s6_addr, sizeof(ifa.address.addr.ipv6));
     }
 
     struct dp_msg *m = dp_request_new(op, ctx);
@@ -128,7 +128,7 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
         case NEXTHOP_TYPE_IPV6:
         case NEXTHOP_TYPE_IPV6_IFINDEX:
             nhop->address.ipver = IPV6;
-            memcpy(nhop->address.addr.ipv6, nh->gate.ipv6.__in6_u.__u6_addr8, 16);
+            memcpy(nhop->address.addr.ipv6, nh->gate.ipv6.s6_addr, sizeof(nhop->address.addr.ipv6));
             break;
         case NEXTHOP_TYPE_BLACKHOLE:
             nhop->fwaction = Drop;
@@ -176,7 +176,7 @@ int send_rpc_request_iproute(RpcOp op, struct zebra_dplane_ctx *ctx)
         route.prefix.addr.ipv4 = p->u.prefix4.s_addr;
     } else {
         route.prefix.ipver = IPV6;
-        memcpy(route.prefix.addr.ipv6, p->u.prefix6.__in6_u.__u6_addr8, 16);
+        memcpy(route.prefix.addr.ipv6, p->u.prefix6.s6_addr, sizeof(route.prefix.addr.ipv6));
     }
 
     const struct nexthop_group *nhg = dplane_ctx_get_ng(ctx);
@@ -438,5 +438,3 @@ void handle_rpc_msg(struct RpcMsg *msg)
     /* free up additional resources */
     msg_dispose(msg);
 }
-
-
