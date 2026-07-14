@@ -87,6 +87,7 @@ int send_rpc_request_rmac(RpcOp op, struct zebra_dplane_ctx *ctx)
     BUG(op != Add && op != Del, -1);
 
     struct rmac rmac = {0};
+
     /* vni */
     rmac.vni = dplane_ctx_mac_get_vni(ctx);
 
@@ -96,9 +97,16 @@ int send_rpc_request_rmac(RpcOp op, struct zebra_dplane_ctx *ctx)
         rmac.mac.bytes[i] = mac->octet[i];
 
     /* Ip address */
-    const struct in_addr *vtep_ip = dplane_ctx_mac_get_vtep_ip(ctx);
-    rmac.address.ipver = IPV4;
-    rmac.address.addr.ipv4 = *((uint32_t*)vtep_ip);
+    const struct ipaddr *vtep_ip = dplane_ctx_mac_get_vtep_ip(ctx);
+    if IS_IPADDR_V4(vtep_ip) {
+        rmac.address.ipver = IPV4;
+        memcpy(&rmac.address.addr, &vtep_ip->ip, IPADDRSZ(vtep_ip));
+    } else if IS_IPADDR_V6(vtep_ip) {
+        rmac.address.ipver = IPV6;
+        memcpy(&rmac.address.addr, &vtep_ip->ip, IPADDRSZ(vtep_ip));
+    } else {
+        return -1;
+    }
 
     struct dp_msg *m = dp_request_new(op, ctx);
     rmac_as_object(&m->msg.request.object, &rmac);
