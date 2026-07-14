@@ -283,7 +283,7 @@ static hh_dp_res_t hh_process(struct zebra_dplane_ctx *ctx)
             return HH_IGNORED;
     }
 
-    return HH_FAIL;
+    return HH_IGNORED;
 }
 
 void zd_hh_process_update(struct zebra_dplane_provider *prov, struct zebra_dplane_ctx *ctx)
