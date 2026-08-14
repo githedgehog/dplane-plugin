@@ -129,6 +129,17 @@ static void dp_unix_sock_close(void)
 {
     if (dp_sock != NO_SOCK) {
         zlog_debug("Closing socket to dataplane...");
+
+        /* Cancel socket events before closing the descriptor.
+         * event_add_read()/event_add_write() do nothing if the
+         * event pointer is non-null. All need to be cancelled
+         * so that they are not kept armed; if they did, they would
+         * refer to old descriptors and do nothing, and the new
+         * descriptor would not be polled
+         */
+        event_cancel(&ev_recv);
+        event_cancel(&ev_send);
+
         close(dp_sock);
         dp_sock = NO_SOCK;
         dp_sock_connected = false;
@@ -143,7 +154,7 @@ static void dp_unix_sock_close(void)
  */
 static int dp_unix_sock_open(const char *bind_path)
 {
-    BUG(!bind_path, -1);
+    BUG(!bind_path, NO_SOCK);
 
     zlog_debug("Opening unix sock for dataplane RPC...");
 
@@ -151,7 +162,7 @@ static int dp_unix_sock_open(const char *bind_path)
     int sock = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
     if (sock < 0) {
         zlog_err("Failed to open unix socket");
-        return -1;
+        return NO_SOCK;
     }
 
     /* build bind address */
@@ -493,7 +504,7 @@ static void dp_connect(struct event *e)
     if (r != 0) {
         event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
     } else {
-        ev_connect_timer = NULL;
+        event_cancel(&ev_connect_timer); /* no-op when we are the timer callback */
         dp_sock_connected = true;
         send_rpc_request_connect(); /* always send connect again */
 
