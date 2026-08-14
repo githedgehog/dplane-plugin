@@ -308,8 +308,8 @@ static int do_send_rpc_msg(struct RpcMsg *msg)
                 zlog_err("Connection error sending msg to dataplane: %s(%d)", strerror(_err), _err);
                 dp_sock_connected = false;
                 dplane_set_ready(false);
-                if (!ev_connect_timer)
-                    dp_connect(NULL);
+                /* sched a new connection */
+                event_add_timer(dplane_get_thread_master(), dp_connect, NULL, 0, &ev_connect_timer);
                 return -1;
             default:
                 zlog_err("Error sending msg to dataplane: %s(%d)", strerror(_err), _err);
@@ -494,9 +494,16 @@ static void dp_rpc_recv(struct event *ev)
 static void dp_connect(struct event *e)
 {
     struct event_loop *ev_loop = dplane_get_thread_master();
+
+    /* We may get here with no socket if a prior dp_unix_sock_reopen() failed to
+     * reopen it */
     if (dp_sock == NO_SOCK) {
-        zlog_err("Will not attempt to connect to dataplane: have no socket");
-        return;
+        zlog_err("Have no socket to dataplane: attempting to recreate it...");
+        dp_sock = dp_unix_sock_open(plugin_sock_path);
+        if (dp_sock == NO_SOCK) {
+            event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
+            return;
+        }
     }
 
     zlog_debug("Attempting to connect to dataplane at '%s'....", dp_sock_path);
@@ -504,11 +511,20 @@ static void dp_connect(struct event *e)
     if (r != 0) {
         event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
     } else {
-        event_cancel(&ev_connect_timer); /* no-op when we are the timer callback */
-        dp_sock_connected = true;
-        send_rpc_request_connect(); /* always send connect again */
 
-        /* sched recv */
+        event_cancel(&ev_connect_timer);
+        dp_sock_connected = true;
+
+        /* always send connect again */
+        if (send_rpc_request_connect() != 0 ) {
+            zlog_warn("Failed to send Connect request. Will retry...");
+            /* do_send_rpc_msg() will schedule a reconnect for connection-type errors.
+             * So, make sure we reconnect if this happens */
+            event_add_timer(ev_loop, dp_connect, NULL, DPLANE_CONNECT_SEC, &ev_connect_timer);
+            return;
+        }
+
+        /* sched recv, only if connected and we could send connect request */
         event_add_read(ev_loop, dp_rpc_recv, NULL, dp_sock, &ev_recv);
     }
 }
