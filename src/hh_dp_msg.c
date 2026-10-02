@@ -142,11 +142,24 @@ static inline void nhop_encode(struct next_hop *nhop, struct nexthop *nh)
             nhop->fwaction = Drop;
             break;
     }
-    /* set encapsulation */
+    // set encapsulation in case of EVPN (L3).
+    // The next-hop rmac should always be present in the next-hop, except maybe if the
+    // svi of the vrf is not oper up. In that case, routes would be possibly deleted
+    // and we don't require the next-hop encap for deletions
     if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_EVPN)) {
         if (nh->nh_encap_type == NET_VXLAN) {
+            if (is_zero_mac(&nh->rmac))
+                zlog_warn("EVPN next-hop %pNHv (vni %u) has zero router mac!",
+                          nh, nh->nh_encap.vni);
+
+            // set encap and mac
             nhop->encap.type = VXLAN;
             nhop->encap.vxlan.vni = nh->nh_encap.vni;
+            for (register int i = 0; i < MAC_LEN ; i++)
+                nhop->encap.vxlan.mac.bytes[i] = nh->rmac.octet[i];
+        } else {
+            zlog_warn("Warning, EVPN next-hop %pNHv (rmac %pEA) has no vxlan encap: is the l3vni of vrf %u up?",
+                      nh, &nh->rmac, nh->vrf_id);
         }
     }
 }
