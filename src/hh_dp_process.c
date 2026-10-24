@@ -88,6 +88,22 @@ static hh_dp_res_t hh_process_routes(struct zebra_dplane_ctx *ctx)
     }
     return !r ? HH_QUEUED: HH_FAIL;
 }
+/*
+ * Address installs are not held until the dataplane answers. The request is sent (or
+ * cached until the dataplane connects) and the context goes straight back to zebra, so
+ * the kernel provider adds the address while the interface it names still exists.
+ *
+ * Holding them caused this: a dataplane exits soon after creating its taps, so the
+ * installs for those taps wait in the unsent queue. Zebra keeps ZEBRA_IFC_QUEUED set on
+ * the addresses, so it issues no install for the next dataplane's taps of the same name.
+ * When the plugin reconnects, the old installs reach the kernel, fail with ENODEV, and
+ * zebra ignores the failure, so QUEUED is never cleared and the taps get no address.
+ *
+ * The dataplane still gets every address: the request stays in the unsent queue until it
+ * connects, and a dataplane that finds the plugin was connected before asks for a refresh,
+ * which re-sends every address zebra knows. Zebra ignores ADDR_INSTALL results, so it loses
+ * nothing either.
+ */
 static hh_dp_res_t hh_process_ifaddr(struct zebra_dplane_ctx *ctx)
 {
     /* we only care about ipv4 atm */
@@ -107,7 +123,7 @@ static hh_dp_res_t hh_process_ifaddr(struct zebra_dplane_ctx *ctx)
         default:
             BUG(true, HH_BUG);
     }
-    return !r ? HH_QUEUED: HH_FAIL;
+    return !r ? HH_OK: HH_FAIL;
 }
 static hh_dp_res_t hh_process_neigh(struct zebra_dplane_ctx *ctx)
 {

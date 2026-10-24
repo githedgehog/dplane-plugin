@@ -23,7 +23,6 @@ static uint64_t seqnum = 1;
 /* Build an Rpc Msg of type request */
 static struct dp_msg *dp_request_new(RpcOp Op, struct zebra_dplane_ctx *ctx)
 {
-    BUG(!ctx && Op != Connect, NULL); /* all requests except connect require a context */
     struct dp_msg *m = dp_msg_new();  /* FRR's allocator aborts in case of OOM */
     if (m) {
         m->msg.type = Request;
@@ -53,7 +52,9 @@ int send_rpc_request_connect(void)
     return send_rpc_msg(m);
 }
 
-/* Send a request to Add / Del an interface address */
+/* Send a request to Add / Del an interface address. The request does not keep the
+ * context: the caller hands it back to zebra right away, and the dataplane's answer
+ * is only logged and counted. */
 int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx)
 {
     BUG(!ctx, -1);
@@ -74,7 +75,7 @@ int send_rpc_request_ifaddress(RpcOp op, struct zebra_dplane_ctx *ctx)
         memcpy(ifa.address.addr.ipv6, ifaddr->u.prefix6.s6_addr, sizeof(ifa.address.addr.ipv6));
     }
 
-    struct dp_msg *m = dp_request_new(op, ctx);
+    struct dp_msg *m = dp_request_new(op, NULL);
     ifaddress_as_object(&m->msg.request.object, &ifa);
 
     return send_rpc_msg(m);
